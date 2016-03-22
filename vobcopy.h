@@ -192,8 +192,8 @@ typedef enum  { FALSE=0, TRUE=1 }  bool;
 
 
 /* OS/2 */
-#if defined(__EMX__)                                                                                                                                                                              
-#define __off64_t __int64_t 
+#if defined(__EMX__)
+#define __off64_t __int64_t
 #include <sys/vfs.h>
 #include <sys/statfs.h>
 #define USE_STATFS 1

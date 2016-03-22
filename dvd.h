@@ -22,6 +22,7 @@ struct dvd_info {
 		char *vmg_id;
 		char *provider_id;
 	} discinfo;
+
 	int title_count;
 	struct {
 		int enabled;
@@ -30,6 +31,7 @@ struct dvd_info {
 			playback_time_t playback_time;
 			char *vts_id;
 		} general;
+
 		struct {
 			int vts;
 			int ttn;
@@ -40,6 +42,7 @@ struct dvd_info {
 			char *height;
 			char *df;
 		} parameter;
+
 		int angle_count; /* no real angle detail is available... but hey. */
 		int audiostream_count;
 		struct {
@@ -53,6 +56,7 @@ struct dvd_info {
 			char *content;
 			int streamid;
 		} *audiostreams;
+
 		int chapter_count_reported; /* This value is sometimes wrong */
 		int chapter_count; /* This value is real */
 		struct {
@@ -60,11 +64,13 @@ struct dvd_info {
 			playback_time_t playback_time;
 			int startcell;
 		} *chapters;
+
 		int cell_count;
 		struct {
 			float length;
 			playback_time_t playback_time;
 		} *cells;
+
 		int subtitle_count;
 		struct {
 			char *langcode;
@@ -72,7 +78,9 @@ struct dvd_info {
 			char *content;
 			int streamid;
 		} *subtitles;
+
 		int *palette;
 	} *titles;
+
 	int longest_track;
 };

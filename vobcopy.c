@@ -53,10 +53,11 @@
 #include "vobcopy.h"
 
 extern int errno;
-char              name[300];
-bool              overwrite_flag = FALSE;
-bool              overwrite_all_flag = FALSE;
-int               overall_skipped_blocks = 0;
+
+char name[300];
+bool overwrite_flag = FALSE;
+bool overwrite_all_flag = FALSE;
+int  overall_skipped_blocks = 0;
 
 /* --------------------------------------------------------------------------*/
 /* MAIN */
@@ -64,1144 +65,1007 @@ int               overall_skipped_blocks = 0;
 
 int main ( int argc, char *argv[] )
 {
-  int               streamout, block_count, blocks, file_block_count;
-  int               op;
-  char              dvd_path[255], logfile_name[20],logfile_path[280]="\0"; /* TODO: fill logfile_path with all zeros so that
+	int streamout, block_count, blocks, file_block_count;
+	int op;
+	char              dvd_path[255], logfile_name[20],logfile_path[280]="\0"; /* TODO: fill logfile_path with all zeros so that
  " if strncpy() finds the source too long IT DOES NOT TERMINATE the sink, so the following strcat() is undefined 
 and potentially fatal."  - Thanks Leigh!*/
-  char              dvd_name[35], vobcopy_call[255], provided_dvd_name[35];
-  char              *size_suffix;
-  char              pwd[255],provided_output_dir[255],provided_input_dir[255];
-  char              alternate_output_dir[4][255], onefile[255];
-  unsigned char     bufferin[ DVD_VIDEO_LB_LEN * BLOCK_COUNT ];
-  int               i = 0,j = 0, argc_i = 0, alternate_dir_count = 0;
-  int               partcount = 0, get_dvd_name_return, options_char = 0;
-  int               dvd_count = 0, verbosity_level = 0, paths_taken = 0, fast_factor = 1;
-  int               watchdog_minutes = 0;
-  long long unsigned int          seek_start = 0, stop_before_end = 0, temp_var;
-  off_t             pwd_free, vob_size = 0, disk_vob_size = 0;
-  off_t             offset = 0, free_space = 0;
-  off_t             max_filesize_in_blocks = 1048571;  /* for 2^31 / 2048 */
-  off_t             max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
-  ssize_t           file_size_in_blocks = 0;
-  bool              mounted = FALSE, provided_output_dir_flag = FALSE;
-  bool              verbose_flag = FALSE, provided_input_dir_flag = FALSE;
-  bool              force_flag = FALSE, info_flag = FALSE, cut_flag = FALSE;
-  bool              large_file_flag = FALSE, titleid_flag = FALSE;
-  bool              mirror_flag = FALSE, provided_dvd_name_flag = FALSE;
-  bool              stdout_flag = FALSE, space_greater_2gb_flag = TRUE;
-  bool              fast_switch = FALSE, onefile_flag = FALSE;
-  bool              quiet_flag = FALSE, longest_title_flag = FALSE;
-  struct stat       buf;
-  float             lastpos = 0;
-  int               starttime;
+	char              dvd_name[35], vobcopy_call[255], provided_dvd_name[35];
+	char              *size_suffix;
+	char              pwd[255],provided_output_dir[255],provided_input_dir[255];
+	char              alternate_output_dir[4][255], onefile[255];
+	unsigned char     bufferin[ DVD_VIDEO_LB_LEN * BLOCK_COUNT ];
+	int               i = 0,j = 0, argc_i = 0, alternate_dir_count = 0;
+	int               partcount = 0, get_dvd_name_return, options_char = 0;
+	int               dvd_count = 0, verbosity_level = 0, paths_taken = 0, fast_factor = 1;
+	int               watchdog_minutes = 0;
+	long long unsigned int          seek_start = 0, stop_before_end = 0, temp_var;
+	off_t             pwd_free, vob_size = 0, disk_vob_size = 0;
+	off_t             offset = 0, free_space = 0;
+	off_t             max_filesize_in_blocks = 1048571;  /* for 2^31 / 2048 */
+	off_t             max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
+	ssize_t           file_size_in_blocks = 0;
+	bool              mounted = FALSE, provided_output_dir_flag = FALSE;
+	bool              verbose_flag = FALSE, provided_input_dir_flag = FALSE;
+	bool              force_flag = FALSE, info_flag = FALSE, cut_flag = FALSE;
+	bool              large_file_flag = FALSE, titleid_flag = FALSE;
+	bool              mirror_flag = FALSE, provided_dvd_name_flag = FALSE;
+	bool              stdout_flag = FALSE, space_greater_2gb_flag = TRUE;
+	bool              fast_switch = FALSE, onefile_flag = FALSE;
+	bool              quiet_flag = FALSE, longest_title_flag = FALSE;
+	struct stat       buf;
+	float             lastpos = 0;
+	int               starttime;
 
-  dvd_reader_t      *dvd = NULL;
-  dvd_file_t        *dvd_file = NULL;
-  extern char       *optarg;
-  extern int        optind, optopt;
+	dvd_reader_t      *dvd = NULL;
+	dvd_file_t        *dvd_file = NULL;
+	extern char       *optarg;
+	extern int        optind, optopt;
 
   /**
    *this is taken from play_title.c
    */
-  int               titleid = 2, chapid = 0, pgc_id, start_cell;
-  int               angle = 0, ttn, pgn, sum_chapters = 0;
-  int               sum_angles = 0, most_chapters = 0;
-  ifo_handle_t *vmg_file;
-  tt_srpt_t *tt_srpt;
-  ifo_handle_t *vts_file;
-  vts_ptt_srpt_t *vts_ptt_srpt;
-  pgc_t *cur_pgc;
+	int               titleid = 2, chapid = 0, pgc_id, start_cell;
+	int               angle = 0, ttn, pgn, sum_chapters = 0;
+	int               sum_angles = 0, most_chapters = 0;
+	ifo_handle_t *vmg_file;
+	tt_srpt_t *tt_srpt;
+	ifo_handle_t *vts_file;
+	vts_ptt_srpt_t *vts_ptt_srpt;
+	pgc_t *cur_pgc;
 
   /*
     this is for the mirror feature (readdir)
   */
-  struct dirent * directory;
-  DIR *dir;
+	struct dirent * directory;
+	DIR *dir;
 
   /**
    *getopt-long
    */
 #ifdef HAVE_GETOPT_LONG
-  int option_index = 0;
-  static struct option long_options[] =
-      {
-        {"1st_alt_output_dir", 1, 0, '1'
-        },
-        {"2st_alt_output_dir", 1, 0, '2'},
-        {"3st_alt_output_dir", 1, 0, '3'},
-        {"4st_alt_output_dir", 1, 0, '4'},
-        {"angle", 1, 0, 'a'},
-        {"begin", 1, 0, 'b'},
-        {"chapter", 1, 0, 'c'},
-        {"end", 1, 0, 'e'},
-        {"force", 0, 0, 'f'},
-        {"fast", 1, 0, 'F'},
-        {"help", 0, 0, 'h'},
-        {"input-dir", 1, 0, 'i'},
-        {"info", 0, 0, 'I'},
-        {"large-file", 0, 0, 'l'},
-        {"longest", 0, 0, 'M'},
-        {"mirror", 0, 0, 'm'},
-        {"title-number", 1, 0, 'n'},
-        {"output-dir", 1, 0, 'o'},
-        {"quiet", 0, 0, 'q'},
-        {"onefile", 1, 0, 'O'},
-        {"name", 1, 0, 't'},
-        {"verbose", 0, 0, 'v'},
-        {"version", 0, 0, 'V'},
-        {"watchdog", 1, 0, 'w'},
-        {"overwrite-all", 0, 0, 'x'}, 
-        {0, 0, 0, 0}
-      };
+	int option_index = 0;
+	static struct option long_options[] = {
+		{"1st_alt_output_dir", 1, 0, '1'},
+		{"2st_alt_output_dir", 1, 0, '2'},
+		{"3st_alt_output_dir", 1, 0, '3'},
+		{"4st_alt_output_dir", 1, 0, '4'},
+		{"angle", 1, 0, 'a'},
+		{"begin", 1, 0, 'b'},
+		{"chapter", 1, 0, 'c'},
+		{"end", 1, 0, 'e'},
+		{"force", 0, 0, 'f'},
+		{"fast", 1, 0, 'F'},
+		{"help", 0, 0, 'h'},
+		{"input-dir", 1, 0, 'i'},
+		{"info", 0, 0, 'I'},
+		{"large-file", 0, 0, 'l'},
+		{"longest", 0, 0, 'M'},
+		{"mirror", 0, 0, 'm'},
+		{"title-number", 1, 0, 'n'},
+		{"output-dir", 1, 0, 'o'},
+		{"quiet", 0, 0, 'q'},
+		{"onefile", 1, 0, 'O'},
+		{"name", 1, 0, 't'},
+		{"verbose", 0, 0, 'v'},
+		{"version", 0, 0, 'V'},
+		{"watchdog", 1, 0, 'w'},
+		{"overwrite-all", 0, 0, 'x'}, 
+		{0, 0, 0, 0}
+	};
 #endif
 
-  /*for gettext - i18n */
+	/*for gettext - i18n */
 #if defined( __gettext__ )
-  setlocale(LC_ALL, "");
-  textdomain("vobcopy");
-  bindtextdomain("vobcopy", "/usr/share/locale");
+	setlocale(LC_ALL, "");
+	textdomain("vobcopy");
+	bindtextdomain("vobcopy", "/usr/share/locale");
 #endif
 
-  /* initialize string */
-  dvd_path[0] = '\0';
+	/* initialize string */
+	dvd_path[0] = '\0';
 
-  /*
-   * the getopt part (getting the options from command line)
-   */
-  while (1)
-    {
+	/*
+	* the getopt part (getting the options from command line)
+	*/
+	while (1) {
 #ifdef HAVE_GETOPT_LONG
-      options_char = getopt_long( argc, argv,
-                                  "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix",
-                                  long_options ,&option_index);
+		options_char = getopt_long(argc, argv,
+					   "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix",
+					    long_options,
+					    &option_index);
 #else
-      options_char = getopt( argc, argv, "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-" );
+		options_char = getopt( argc, argv, "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-" );
 #endif
 
-      if ( options_char == -1 ) break;
+		if (options_char == -1)
+			break;
 
-      switch( options_char )
-        {
+		switch (options_char) {
+		case'a': /*angle*/
+			if (!isdigit((int) *optarg )) {
+				fprintf( stderr, _("[Error] The thing behind -a has to be a number! \n") );
+				exit(1);
+			}
+			sscanf( optarg, "%i", &angle );
+			angle--;/*in the ifo they start at zero */
+			if (angle < 0) {
+				fprintf( stderr, _("[Hint] Um, you set angle to 0, try 1 instead ;-)\n") );
+				exit(1);
+			}
+			break;
+		case'b': /*size to skip from the beginning (beginning-offset) */
+			if (!isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Error] The thing behind -b has to be a number! \n") );
+				exit(1);
+			}
+			temp_var = atol( optarg );
+			size_suffix = strpbrk( optarg, "bkmgBKMG" );
+			if(!size_suffix) {
+				fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
+				exit(1);
+			}
 
-        case'a': /*angle*/
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -a has to be a number! \n") );
-              exit(1);
-            }
-          sscanf( optarg, "%i", &angle );
-          angle--;/*in the ifo they start at zero */
-          if (angle < 0)
-            {
-              fprintf( stderr, _("[Hint] Um, you set angle to 0, try 1 instead ;-)\n") );
-              exit(1);
-            }
-          break;
+			switch( *size_suffix ) {
+			case'b':
+			case'B':
+				temp_var *= 512;/*blocks (normal, not dvd)*/
+				break;
+			case'k':
+			case'K':
+				temp_var *= 1024; /*kilo*/
+				break;
+			case'm':
+			case'M':
+				temp_var *= ( 1024 * 1024 );/*mega*/
+				break;
+			case'g':
+			case'G':
+				temp_var *= ( 1024 * 1024 * 1024 );/*wow, giga *g */
+				break;
+			case'?':
+				fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
+				exit(1);
+				break;
+			}
 
-        case'b': /*size to skip from the beginning (beginning-offset) */
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -b has to be a number! \n") );
-              exit(1);
-            }
-          temp_var = atol( optarg );
-          size_suffix = strpbrk( optarg, "bkmgBKMG" );
-          if( !size_suffix)
-            {
-              fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
-              exit(1);
-            }
+			/* 	  sscanf( optarg, "%lli", &temp_var ); */
+			seek_start = abs( temp_var / 2048 );
+			if( seek_start < 0 )
+				seek_start = 0;
+			cut_flag = TRUE;
+			break;
 
-          switch( *size_suffix )
-            {
-            case'b':
-            case'B':
-              temp_var *= 512;/*blocks (normal, not dvd)*/
-              break;
-            case'k':
-            case'K':
-              temp_var *= 1024; /*kilo*/
-              break;
-            case'm':
-            case'M':
-              temp_var *= ( 1024 * 1024 );/*mega*/
-              break;
-            case'g':
-            case'G':
-              temp_var *= ( 1024 * 1024 * 1024 );/*wow, giga *g */
-              break;
-            case'?':
-              fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
-              exit(1);
-              break;
-            }
-          /* 	  sscanf( optarg, "%lli", &temp_var ); */
-          seek_start = abs( temp_var / 2048 );
-          if( seek_start < 0 )
-            seek_start = 0;
-          cut_flag = TRUE;
-          break;
+		case 'c': /*chapter*/ /*NOT WORKING!!*/
+			if (!isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Error] The thing behind -c has to be a number! \n") );
+				exit(1);
+			}
+			sscanf( optarg, "%i", &chapid );
+			chapid--;/*in the ifo they start at zero */
+			break;
 
-        case'c': /*chapter*/ /*NOT WORKING!!*/
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -c has to be a number! \n") );
-              exit(1);
-            }
-          sscanf( optarg, "%i", &chapid );
-          chapid--;/*in the ifo they start at zero */
-          break;
+		case 'e': /*size to stop from the end (end-offset) */
+			if (!isdigit((int) optarg[0])) {
+				fprintf( stderr, _("[Error] The thing behind -e has to be a number! \n") );
+				exit(1);
+			}
+			temp_var = atol( optarg );
+			size_suffix = strpbrk( optarg, "bkmgBKMG" );
+			if( !size_suffix) {
+				fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
+				exit(1);
+			}
 
-        case'e': /*size to stop from the end (end-offset) */
-          if ( !isdigit( (int) optarg[0] ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -e has to be a number! \n") );
-              exit(1);
-            }
-          temp_var = atol( optarg );
-          size_suffix = strpbrk( optarg, "bkmgBKMG" );
-          if( !size_suffix)
-            {
-              fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
-              exit(1);
-            }
-          switch( *size_suffix )
-            {
-            case'b':
-            case'B':
-              temp_var *= 512;  /*blocks (normal, not dvd)*/
-              break;
-            case'k':
-            case'K':
-              temp_var *= 1024; /*kilo*/
-              break;
-            case'm':
-            case'M':
-              temp_var *= ( 1024 * 1024 );  /*mega*/
-              break;
-            case'g':
-            case'G':
-              temp_var *= ( 1024 * 1024 * 1024 );/*wow, giga *g */
-              break;
-            case'?':
-              fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
-              exit(1);
-              break;
-            }
+			switch( *size_suffix ) {
+			case 'b':
+			case'B':
+				temp_var *= 512;  /*blocks (normal, not dvd)*/
+				break;
+			case'k':
+			case'K':
+				temp_var *= 1024; /*kilo*/
+				break;
+			case'm':
+			case'M':
+				temp_var *= ( 1024 * 1024 );  /*mega*/
+				break;
+			case'g':
+			case'G':
+				temp_var *= ( 1024 * 1024 * 1024 );/*wow, giga *g */
+				break;
+			case'?':
+				fprintf( stderr, _("[Error] Wrong suffix behind -b, only b,k,m or g \n") );
+				exit(1);
+				break;
+			}
 
-          stop_before_end = abs( temp_var / 2048 );
-          if( stop_before_end < 0 )
-            stop_before_end = 0;
-          cut_flag = TRUE;
-          break;
+			stop_before_end = abs( temp_var / 2048 );
+			if( stop_before_end < 0 )
+				stop_before_end = 0;
+			cut_flag = TRUE;
+			break;
 
-        case'f': /*force flag, some options like -o, -1..-4 set this
-          		     themselves */
-          force_flag = TRUE;
-          break;
+		case'f': /*force flag, some options like -o, -1..-4 set this themselves */
+			force_flag = TRUE;
+			break;
 
-        case'h': /* good 'ol help */
-          usage( argv[0] );
-          break;
+		case'h': /* good 'ol help */
+			usage( argv[0] );
+			break;
 
-        case'i': /*input dir, if the automatic needs to be overridden */
-          if ( isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] Erm, the number comes behind -n ... \n") );
-              exit(1);
-            }
-          fprintf( stderr, _("[Hint] You use -i. Normally this is not necessary, vobcopy finds the input dir by itself. This option is only there if vobcopy makes trouble.\n") );
-          fprintf( stderr, _("[Hint] If vobcopy makes trouble, please mail me so that I can fix this (robos@muon.de). Thanks\n") );
-          safestrncpy( provided_input_dir, optarg, sizeof(provided_input_dir)-1 );
-          if( strstr( provided_input_dir, "/dev" ) )
-            {
-              fprintf( stderr, _("[Error] Please don't use -i /dev/something in this version, only the next version will support this again.\n") );
-              fprintf( stderr, _("[Hint] Please use the mount point instead (/cdrom, /dvd, /mnt/dvd or something)\n") );
-            }
-          provided_input_dir_flag = TRUE;
-          break;
+		case'i': /*input dir, if the automatic needs to be overridden */
+			if (isdigit((int) *optarg )) {
+				fprintf( stderr, _("[Error] Erm, the number comes behind -n ... \n") );
+				exit(1);
+			}
+
+			fprintf( stderr, _("[Hint] You use -i. Normally this is not necessary, vobcopy finds the input dir by itself. This option is only there if vobcopy makes trouble.\n") );
+			fprintf( stderr, _("[Hint] If vobcopy makes trouble, please mail me so that I can fix this (robos@muon.de). Thanks\n") );
+			safestrncpy( provided_input_dir, optarg, sizeof(provided_input_dir)-1 );
+			if(strstr(provided_input_dir, "/dev")) {
+				fprintf( stderr, _("[Error] Please don't use -i /dev/something in this version, only the next version will support this again.\n") );
+				fprintf( stderr, _("[Hint] Please use the mount point instead (/cdrom, /dvd, /mnt/dvd or something)\n") );
+			}
+			provided_input_dir_flag = TRUE;
+			break;
 
 #if defined( HAS_LARGEFILE ) || defined( MAC_LARGEFILE )
-        case'l': /*large file output*/
-          max_filesize_in_blocks = 8388608; /*16 GB /2048 (block) */
-          /* 2^63 / 2048 (not exactly) */
-          large_file_flag = TRUE;
-          break;
+		case'l': /*large file output*/
+			max_filesize_in_blocks = 8388608; /*16 GB /2048 (block) */
+			/* 2^63 / 2048 (not exactly) */
+			large_file_flag = TRUE;
+			break;
 #endif
+		case'm':/*mirrors the dvd to harddrive completly*/
+			mirror_flag = TRUE;
+			info_flag = TRUE;
+			break;
 
-        case'm':/*mirrors the dvd to harddrive completly*/
-          mirror_flag = TRUE;
-          info_flag = TRUE;
-          break;
+		case'M':/*Main track - i.e. the longest track on the dvd*/
+			titleid_flag = TRUE;
+			longest_title_flag = TRUE;
+			break;
 
-        case'M':/*Main track - i.e. the longest track on the dvd*/
-          titleid_flag = TRUE;
-	  longest_title_flag = TRUE;
-          break;
+		case'n': /*title number*/
+			if (!isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Error] The thing behind -n has to be a number! \n") );
+				exit(1);
+			}
+			sscanf( optarg, "%i", &titleid );
+			titleid_flag = TRUE;
+			break;
 
-        case'n': /*title number*/
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -n has to be a number! \n") );
-              exit(1);
-            }
-          sscanf( optarg, "%i", &titleid );
-          titleid_flag = TRUE;
-          break;
+		case'o': /*output destination */
+			if (isdigit((int) *optarg))
+				fprintf( stderr, _("[Hint] Erm, the number comes behind -n ... \n") );
 
-        case'o': /*output destination */
-          if ( isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Hint] Erm, the number comes behind -n ... \n") );
-            }
-          safestrncpy( provided_output_dir, optarg, sizeof(provided_output_dir)-1 );
-          if ( !strcasecmp( provided_output_dir, "stdout" ) || !strcasecmp( provided_output_dir, "-" ) )
-            {
-              stdout_flag = TRUE;
-              force_flag = TRUE;
-            }
-          else
-            {
-              provided_output_dir_flag = TRUE;
-              alternate_dir_count++;
-            }
-          /* 	  force_flag = TRUE; */
-          break;
+			safestrncpy( provided_output_dir, optarg, sizeof(provided_output_dir)-1 );
+			if (!strcasecmp( provided_output_dir, "stdout" ) || !strcasecmp( provided_output_dir, "-" )) {
+				stdout_flag = TRUE;
+				force_flag = TRUE;
+			} else {
+				provided_output_dir_flag = TRUE;
+				alternate_dir_count++;
+			}
+			/* force_flag = TRUE; */
+			break;
 
-        case'q':/*quiet flag* - meaning no progress and such output*/
-          quiet_flag = TRUE;
-          break;
+		case'q':/*quiet flag* - meaning no progress and such output*/
+			quiet_flag = TRUE;
+			break;
 
-        case'1': /*alternate output destination*/
-        case'2':
-        case'3':
-        case'4':
-          if( alternate_dir_count < options_char - 48 )
-            {
-              fprintf( stderr, _("[Error] Please specify output dirs in this order: -o -1 -2 -3 -4 \n") );
-              exit( 1 );
-            }
+		case'1': /*alternate output destination*/
+		case'2':
+		case'3':
+		case'4':
+			if( alternate_dir_count < options_char - 48 ) {
+				fprintf( stderr, _("[Error] Please specify output dirs in this order: -o -1 -2 -3 -4 \n") );
+				exit( 1 );
+			}
 
-          if ( isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Hint] Erm, the number comes behind -n ... \n") );
-            }
-          safestrncpy( alternate_output_dir[ options_char-49 ], optarg, sizeof(alternate_output_dir[ options_char-49 ])-1 );
-          provided_output_dir_flag = TRUE;
-          alternate_dir_count++;
-          force_flag = TRUE;
-          break;
+			if (isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Hint] Erm, the number comes behind -n ... \n") );
+			}
+			safestrncpy( alternate_output_dir[ options_char-49 ], optarg, sizeof(alternate_output_dir[ options_char-49 ])-1 );
+			provided_output_dir_flag = TRUE;
+			alternate_dir_count++;
+			force_flag = TRUE;
+			break;
 
-        case't': /*provided title instead of the one from dvd,
-          		     maybe even stdout output */
-          if ( strlen( optarg ) > 33 )
-            printf( "[Hint] The max title-name length is 33, the remainder got discarded" );
-          safestrncpy( provided_dvd_name, optarg, sizeof(provided_dvd_name)-1 );
-          provided_dvd_name_flag = TRUE;
-          if ( !strcasecmp( provided_dvd_name,"stdout" ) || !strcasecmp( provided_dvd_name,"-" ) )
-            {
-              stdout_flag = TRUE;
-              force_flag = TRUE;
-            }
-	  for( i=0; i< strlen(provided_dvd_name);i++ )
-	    {
-	      if( provided_dvd_name[i] == ' ')
-		provided_dvd_name[i] = '_';
-	    }
+		case't': /*provided title instead of the one from dvd,
+			   maybe even stdout output */
+			if ( strlen( optarg ) > 33 )
+				printf( "[Hint] The max title-name length is 33, the remainder got discarded" );
+			safestrncpy( provided_dvd_name, optarg, sizeof(provided_dvd_name)-1 );
+			provided_dvd_name_flag = TRUE;
+			if (!strcasecmp( provided_dvd_name,"stdout" ) || !strcasecmp( provided_dvd_name,"-" )) {
+				stdout_flag = TRUE;
+				force_flag = TRUE;
+			}
 
-          break;
+			for(i = 0; i< strlen(provided_dvd_name); i++) {
+				if( provided_dvd_name[i] == ' ')
+					provided_dvd_name[i] = '_';
+			}
+			break;
 
-        case'v': /*verbosity level, can be called multiple times*/
-          verbose_flag = TRUE;
-          verbosity_level++;
-          break;
+		case'v': /*verbosity level, can be called multiple times*/
+			verbose_flag = TRUE;
+			verbosity_level++;
+			break;
 
-        case'w': /*sets a watchdog timer to cap the amount of time spent
-                             grunging about on a heavily protected disc */
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -w has to be a number! \n") );
-              exit(1);
-            }
-          sscanf( optarg, "%i", &watchdog_minutes );
-          if( watchdog_minutes < 1 )
-            {
-              fprintf( stderr, _("[Hint] Negative minutes aren't allowed - disabling watchdog.\n") );
-              watchdog_minutes = 0;
-            }
-          break;
+		case'w': /*sets a watchdog timer to cap the amount of time spent
+			   grunging about on a heavily protected disc */
+			if (!isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Error] The thing behind -w has to be a number! \n") );
+				exit(1);
+			}
+			sscanf( optarg, "%i", &watchdog_minutes );
+			if(watchdog_minutes < 1) {
+				fprintf( stderr, _("[Hint] Negative minutes aren't allowed - disabling watchdog.\n") );
+				watchdog_minutes = 0;
+			}
+			break;
 
-        case'x': /*overwrite all existing files without (further) question */
-          overwrite_all_flag = TRUE;
-          break;
+		case'x': /*overwrite all existing files without (further) question */
+			overwrite_all_flag = TRUE;
+			break;
 
-        case'F': /*Fast-switch*/
-          if ( !isdigit( (int) *optarg ) )
-            {
-              fprintf( stderr, _("[Error] The thing behind -F has to be a number! \n") );
-              exit(1);
-            }
-          sscanf( optarg, "%i", &fast_factor );
-          if( fast_factor > BLOCK_COUNT ) /*atm is BLOCK_COUNT == 64 */
-            {
-              fprintf( stderr, _("[Hint] The largest value for -F is %d at the moment - used that one...\n"), BLOCK_COUNT );
-              fast_factor = BLOCK_COUNT;
-            }
+		case'F': /*Fast-switch*/
+			if (!isdigit((int) *optarg)) {
+				fprintf( stderr, _("[Error] The thing behind -F has to be a number! \n") );
+				exit(1);
+			}
+			sscanf( optarg, "%i", &fast_factor );
 
-          fast_switch = TRUE;
-          break;
+			/*atm is BLOCK_COUNT == 64 */
+			if( fast_factor > BLOCK_COUNT ) {
+				fprintf( stderr, _("[Hint] The largest value for -F is %d at the moment - used that one...\n"), BLOCK_COUNT );
+				fast_factor = BLOCK_COUNT;
+			}
 
-        case'I': /*info, doesn't do anything, but simply prints some infos
-          		     ( about the dvd )*/
-          info_flag = TRUE;
-          break;
+			fast_switch = TRUE;
+			break;
 
-        case'L': /*logfile-path (in case your system crashes every time you
+		case'I': /*info, doesn't do anything, but simply prints some infos
+			  ( about the dvd )*/
+			info_flag = TRUE;
+			break;
+
+		case'L': /*logfile-path (in case your system crashes every time you
           		     call vobcopy (and since the normal logs get written to 
           		     /tmp and that gets cleared at every reboot... )*/
-          strncpy(logfile_path, optarg, sizeof(logfile_path)-2);  /* -s so room for '/' */
-          strcat(logfile_path, "/");
-          logfile_path[sizeof(logfile_path)-1] = '\0';
+			strncpy(logfile_path, optarg, sizeof(logfile_path)-2);  /* -s so room for '/' */
+			strcat(logfile_path, "/");
+			logfile_path[sizeof(logfile_path)-1] = '\0';
 
-          verbose_flag = TRUE;
-          verbosity_level = 2;
-          break;
+			verbose_flag = TRUE;
+			verbosity_level = 2;
+			break;
 
-        case'O': /*only one file will get copied*/
-          onefile_flag = TRUE;
-          safestrncpy( onefile, optarg, sizeof(onefile)-1 );
-          i = 0; /*this i here could be bad... */
-          while( onefile[ i ] )
-            {
-              onefile[ i ] = toupper ( onefile[ i ] );
-              i++;
-            }
-          if( onefile[ i - 1 ] == ',' )
-            onefile[ i ] = 0;
-          else
-            {
-              onefile[ i ] = ',';
-              onefile[ i + 1 ] = 0;
-            }
-          mirror_flag = TRUE;
-          i = 0;
-          break;
-        case'V': /*version number output */
-          printf( "Vobcopy "VERSION" - GPL Copyright (c) 2001 - 2009 robos@muon.de\n" );
-          exit( 0 );
-          break;
+		case'O': /*only one file will get copied*/
+			onefile_flag = TRUE;
+			safestrncpy( onefile, optarg, sizeof(onefile)-1 );
 
-        case'?': /*probably never gets here, the others should catch it */
-          fprintf( stderr, _("[Error] Wrong option.\n") );
-          usage( argv[0] );
-          exit( 1 );
-          break;
+			for (i = 0; onefile[i]; i++)
+				onefile[ i ] = toupper ( onefile[ i ] );
+			if (onefile[i - 1] == ',')
+				onefile[i] = 0;
+			else {
+				onefile[i]     = ',';
+				onefile[i + 1] = 0;
+			}
+			mirror_flag = TRUE;
+			i = 0;
+			break;
+		case'V': /*version number output */
+			printf( "Vobcopy "VERSION" - GPL Copyright (c) 2001 - 2009 robos@muon.de\n" );
+			exit(0);
+			break;
+
+		case'?': /*probably never gets here, the others should catch it */
+			fprintf(stderr, _("[Error] Wrong option.\n") );
+			usage(argv[0]);
+			exit(1);
+			break;
 
 #ifndef HAVE_GETOPT_LONG
-        case'-': /* no getopt, complain */
-          fprintf( stderr, _("[Error] %s was compiled without support for long options.\n"),  argv[0] );
-          usage( argv[0] );
-          exit( 1 );
-          break;
+		case'-': /* no getopt, complain */
+			fprintf( stderr, _("[Error] %s was compiled without support for long options.\n"),  argv[0] );
+			usage( argv[0] );
+			exit( 1 );
+			break;
 #endif
 
-        default:  /*probably never gets here, the others should catch it */
-          fprintf( stderr, _("[Error] Wrong option.\n") );
-          usage( argv[0] );
-          exit( 1 );
-        }
-    }
-
-  fprintf( stderr, _("Vobcopy "VERSION" - GPL Copyright (c) 2001 - 2009 robos@muon.de\n") );
-  fprintf( stderr, _("[Hint] All lines starting with \"libdvdread:\" are not from vobcopy but from the libdvdread-library\n") );
-
-  /*get the current working directory*/
-  if ( provided_output_dir_flag )
-    {
-      strcpy( pwd, provided_output_dir );
-    }
-  else
-    {
-      if ( getcwd( pwd, 255 ) == NULL )
-        {
-          fprintf( stderr, _("\n[Error] Hmm, the path length of your current directory is really large (>255)\n") );
-          fprintf( stderr, _("[Hint] Change to a path with shorter path length pleeeease ;-)\n") );
-          exit( 1 );
-        }
-    }
-
-  add_end_slash( pwd );
-
-
-  if( quiet_flag )
-    {
-      int temp;
-      char tmp_path[268];
-
-      strcpy( tmp_path, pwd );
-      strcat( tmp_path, "vobcopy.bla" );
-      fprintf( stderr, _("[Hint] Quiet mode - All messages will now end up in %s\n"), tmp_path );
-      if ( ( temp = open( tmp_path , O_RDWR | O_CREAT | O_EXCL, 0666 ) ) == -1 )
-	{
-	  if ( errno == EEXIST )
-	    {
-	      if ( !force_flag )
-		{
-		  printf( "[Error] Error: %s\n", strerror( errno ) );
-		  printf( "\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here.\n", tmp_path );
-		  printf( "[Hint] Use -f to override or simply delete that file\n" );
-		  exit( 1 );
+		default:  /*probably never gets here, the others should catch it */
+			fprintf( stderr, _("[Error] Wrong option.\n") );
+			usage( argv[0] );
+			exit( 1 );
 		}
-	      else
-		{
-		  printf( "[Warning] Overwriting %s as requested with -f\n", tmp_path );
-		}
-	    }
-	  else
-	    {
-	      printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path );
-	      printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
-	      if ( !force_flag )
+	}
+
+	fprintf( stderr, _("Vobcopy "VERSION" - GPL Copyright (c) 2001 - 2009 robos@muon.de\n") );
+	fprintf( stderr, _("[Hint] All lines starting with \"libdvdread:\" are not from vobcopy but from the libdvdread-library\n") );
+
+	/*get the current working directory*/
+	if (provided_output_dir_flag)
+		strcpy(pwd, provided_output_dir);
+	else if (getcwd(pwd, 255) == NULL) {
+		fprintf( stderr, _("\n[Error] Hmm, the path length of your current directory is really large (>255)\n") );
+		fprintf( stderr, _("[Hint] Change to a path with shorter path length pleeeease ;-)\n") );
 		exit( 1 );
-	    }
 	}
-      else
-	{
-	  close( temp );
-	}
+
+	add_end_slash( pwd );
+
+
+	if(quiet_flag) {
+		int temp;
+		char tmp_path[268];
+
+		strcpy( tmp_path, pwd );
+		strcat( tmp_path, "vobcopy.bla" );
+		fprintf( stderr, _("[Hint] Quiet mode - All messages will now end up in %s\n"), tmp_path );
+		if ((temp = open(tmp_path , O_RDWR | O_CREAT | O_EXCL, 0666 )) == -1) {
+			if (errno == EEXIST) {
+				if ( !force_flag ) {
+					printf( "[Error] Error: %s\n", strerror( errno ) );
+					printf( "\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here.\n", tmp_path );
+					printf( "[Hint] Use -f to override or simply delete that file\n" );
+					exit( 1 );
+				} else {
+					printf( "[Warning] Overwriting %s as requested with -f\n", tmp_path );
+				}
+			} else {
+				printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path );
+				printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
+				if (!force_flag)
+					exit( 1 );
+			}
+		} else {
+			close( temp );
+		}
    
-      if ( chmod( tmp_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH ) == -1 )
-        {
-	  printf( "[Error] Error: %s\n", strerror( errno ) );
-          printf( "[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", tmp_path );
-          printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
-          if ( !force_flag )
-            exit( 1 );
-        }
+		if ( chmod( tmp_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH ) == -1 ) {
+			printf( "[Error] Error: %s\n", strerror( errno ) );
+			printf( "[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", tmp_path );
+			printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
+			if (!force_flag)
+				exit(1);
+		}
 
 
-      /*reopen the already tested file and attach stderr to it*/
-      if ( freopen( tmp_path , "a" , stderr ) == NULL )
-        {
-	  printf( "[Error] Error: %s\n", strerror( errno ) );
-          printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path );
-          printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
-          if ( !force_flag )
-            exit( 1 );
-        }
-    }
-
-
-  if( verbosity_level > 1 ) /* this here starts writing the logfile */
-    {
-      int temp;
-      fprintf( stderr, _("[Info] Uhu, super-verbose\n") );
-
-      if( strlen( logfile_path ) < 3 )
-	strcpy( logfile_path, pwd );
-      strcpy( logfile_name, "vobcopy_" );
-      strcat( logfile_name, VERSION );
-      strcat( logfile_name, ".log" );
-      strcat( logfile_path, logfile_name );
-      if ( ( temp = open ( logfile_path , O_RDWR | O_CREAT | O_EXCL, 0666 ) ) == -1 )
-	{
-	  printf( "[Error] Error: %s\n", strerror( errno ) );
-	  if ( errno == EEXIST )
-	    {
-	      printf( "\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here. \n", logfile_path );
-	      printf( "[Hint] Use -f to override or simply delete that file\n" );
-	      if ( !force_flag )
-		exit( 1 );
-	    }
-	  else
-	    {
-	      printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", logfile_path );
-	      if ( !force_flag )
-		exit( 1 );
-	    }
-	}
-      else
-	{
-	  close( temp );
+		/*reopen the already tested file and attach stderr to it*/
+		if (freopen(tmp_path , "a" , stderr) == NULL) {
+			printf( "[Error] Error: %s\n", strerror( errno ) );
+			printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path );
+			printf( "[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n" );
+			if (!force_flag)
+				exit(1);
+		}
 	}
 
-      if ( chmod( logfile_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH ) == -1 )
-        {
-	  printf( "[Error] Error: %s\n", strerror( errno ) );
-          printf( "[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", logfile_path );
-          printf( "[Hint] Use -f to try to continue anyway\n" );
-          if ( !force_flag )
-            exit( 1 );
-        }
+	/* this here starts writing the logfile */
+	if( verbosity_level > 1 ) {
+		int temp;
+		fprintf( stderr, _("[Info] Uhu, super-verbose\n") );
 
+		if( strlen( logfile_path ) < 3 )
+			strcpy( logfile_path, pwd );
+		strcpy( logfile_name, "vobcopy_" );
+		strcat( logfile_name, VERSION );
+		strcat( logfile_name, ".log" );
+		strcat( logfile_path, logfile_name );
+		if (( temp = open (logfile_path , O_RDWR | O_CREAT | O_EXCL, 0666 )) == -1) {
+			printf("[Error] Error: %s\n", strerror(errno));
+			if (errno == EEXIST) {
+				printf("\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here. \n", logfile_path);
+				printf("[Hint] Use -f to override or simply delete that file\n");
 
-      fprintf( stderr, _("[Info] The log-file is written to %s\n"), logfile_path );
-      fprintf( stderr, _("[Hint] Make sure that vobcopy doesn't have to ask questions (like overwriting of old files), these questions end up in the log file so you don't see them...\n") );
-      fprintf( stderr, _("[Hint] If you don't like that position, use -L /path/to/logfile/ instead of -v -v\n") );
+				if (!force_flag)
+					exit( 1 );
+			} else {
+				printf("[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", logfile_path);
+				if (!force_flag)
+					exit(1);
+			}
+		} else
+			close( temp );
 
-      if ( freopen( logfile_path, "a" , stderr ) == NULL )
-        {
-	  printf( "[Error] Error: %s\n", strerror( errno ) );
-          printf( "[Error] Aaah! Re-direct of stderr to %s didn't work! \n", logfile_path );
-          /* oh no! redirecting of stderr failed, do best to quit gracefully */
-          exit( 1 );
-        }
+		if (chmod(logfile_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
+			printf( "[Error] Error: %s\n", strerror( errno ) );
+			printf( "[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", logfile_path );
+			printf( "[Hint] Use -f to try to continue anyway\n" );
+			if (!force_flag)
+				exit(1);
+		}
 
-      strcpy( vobcopy_call, argv[0] );
-      for( argc_i = 1; argc_i != argc; argc_i++ )
-        {
-          strcat( vobcopy_call, " " );
-          strcat( vobcopy_call, argv[argc_i] );
-        }
-      fprintf( stderr, _("--------------------------------------------------------------------------------\n") );
-      fprintf( stderr, _("[Info] Called: %s\n"), vobcopy_call );
-    }
+		fprintf(stderr, _("[Info] The log-file is written to %s\n"), logfile_path );
+		fprintf(stderr, _("[Hint] Make sure that vobcopy doesn't have to ask questions (like overwriting of old files), these questions end up in the log file so you don't see them...\n") );
+		fprintf(stderr, _("[Hint] If you don't like that position, use -L /path/to/logfile/ instead of -v -v\n") );
 
-  /*sanity check: -m and -n are mutually exclusive... */
-  if( titleid_flag && mirror_flag )
-    {
-      fprintf( stderr, _("\n[Error] There can be only one: either -m or -n...'\n") );
-      exit( 1 );
-    }
+		if (freopen(logfile_path, "a" , stderr) == NULL) {
+			printf("[Error] Error: %s\n", strerror(errno));
+			printf("[Error] Aaah! Re-direct of stderr to %s didn't work! \n", logfile_path );
+			/* oh no! redirecting of stderr failed, do best to quit gracefully */
+			exit(1);
+		}
 
+		strcpy( vobcopy_call, argv[0] );
+		for(argc_i = 1; argc_i != argc; argc_i++) {
+			strcat( vobcopy_call, " " );
+			strcat( vobcopy_call, argv[argc_i] );
+		}
 
-  /*
-   * Check if the provided path is too long
-   */
-  if ( optind < argc ) /* there is still the path as in vobcopy-0.2.0 */
-    {
-      provided_input_dir_flag = TRUE;
-      if ( strlen( argv[optind] ) >= 255 )
-        {
-          fprintf( stderr, _("\n[Error] Bloody path to long '%s'\n"), argv[optind] );
-          exit( 1 );
-        }
-      safestrncpy( provided_input_dir, argv[optind],sizeof(provided_input_dir)-1 );
-    }
-
-  if ( provided_input_dir_flag ) /*the path has been given to us */
-    {
-      int result;
-      /* 'mounted' is an enum, it should not get assigned an int -- lb */
-      if ( ( result = get_device( provided_input_dir, dvd_path ) ) < 0 )
-        {
-          fprintf( stderr, _("[Error] Could not get the device which belongs to the given path!\n") );
-          fprintf( stderr, _("[Hint] Will try to open it as a directory/image file\n") );
-	  /*           exit( 1 ); */
-        }
-      if (result == 0)
-        mounted = FALSE;
-
-      if (result == 1)
-        mounted = TRUE;
-    }
-  else /*need to get the path and device ourselves ( oyo = on your own ) */
-    {
-      if ( ( dvd_count = get_device_on_your_own( provided_input_dir, dvd_path ) ) <= 0 )
-        {
-          fprintf( stderr, _("[Warning] Could not get the device and path! Maybe not mounted the dvd?\n") );
-          fprintf( stderr, _("[Hint] Will try to open it as a directory/image file\n") );
-	  /*           exit( 1 ); */
-        }
-      if( dvd_count > 0 )
-        mounted = TRUE;
-      else
-        mounted = FALSE;
-    }
-
-  if (! mounted )
-    {
-      /*see if the path given is a iso file or a VIDEO_TS dir */
-      safestrncpy( dvd_path, provided_input_dir, sizeof(dvd_path)-1 );
-    }
-
-  /*
-   * Is the path correct
-   */
-  fprintf( stderr, _("\n[Info] Path to dvd: %s\n"), dvd_path );
-
-  if( !( dvd = DVDOpen( dvd_path ) ) )
-    {
-      fprintf( stderr, _("\n[Error] Path thingy didn't work '%s'\n"), dvd_path);
-      fprintf( stderr, _("[Error] Try something like -i /cdrom, /dvd  or /mnt/dvd \n") );
-      if( dvd_count > 1 )
-        fprintf( stderr, _("[Hint] By the way, you have %i cdroms|dvds mounted, that probably caused the problem\n"), dvd_count );
-      DVDClose( dvd );
-      exit( 1 );
-    }
-
-  /*
-   * this here gets the dvd name
-   */
-  if ( provided_dvd_name_flag )
-    safestrncpy( dvd_name, provided_dvd_name, sizeof(dvd_name)-1 );
-  else
-    get_dvd_name_return = get_dvd_name( dvd_path, dvd_name );
-  fprintf( stderr, _("[Info] Name of the dvd: %s\n"), dvd_name );
-
-  /* The new part taken from play-title.c*/
-
-  /**
-   * Load the video manager to find out the information about the titles on
-   * this disc.
-   */
-  vmg_file = ifoOpen( dvd, 0 );
-  if( !vmg_file )
-    {
-      fprintf( stderr, _("[Error] Can't open VMG info.\n") );
-      DVDClose( dvd );
-      return -1;
-    }
-  tt_srpt = vmg_file->tt_srpt;
-
-  /**
-   * Get the title with the most chapters since this is probably the main part
-   */
-  for( i = 0;i < tt_srpt->nr_of_srpts;i++ )
-    {
-      sum_chapters += tt_srpt->title[ i ].nr_of_ptts;
-      if( i > 0 )
-        {
-          if( tt_srpt->title[ i ].nr_of_ptts > tt_srpt->title[ most_chapters ].nr_of_ptts )
-            {
-              most_chapters = i;
-            }
-        }
-
-    }
-
-  if( longest_title_flag ) /*no title specified (-n ) */
-    {
-      titleid = get_longest_title( &dvd );
-      fprintf( stderr, _("[Info] longest title %d.\n"), titleid );
-    }
-
-  if( !titleid_flag ) /*no title specified (-n ) */
-    {
-      titleid = most_chapters + 1; /*they start counting with 0, I with 1...*/
-    }
-
-
-  /**
-   * Make sure our title number is valid.
-   */
-  fprintf( stderr, _("[Info] There are %d titles on this DVD.\n"),
-           tt_srpt->nr_of_srpts );
-  if( titleid <= 0 || ( titleid-1 ) >= tt_srpt->nr_of_srpts )
-    {
-      fprintf( stderr, _("[Error] Invalid title %d.\n"), titleid );
-      ifoClose( vmg_file );
-      DVDClose( dvd );
-      return -1;
-    }
-
-
-  /**
-   * Make sure the chapter number is valid for this title.
-   */
-
-  fprintf( stderr, _("[Info] There are %i chapters on the dvd.\n"), sum_chapters );
-  fprintf( stderr, _("[Info] Most chapters has title %i with %d chapters.\n"),
-           ( most_chapters + 1 ), tt_srpt->title[ most_chapters ].nr_of_ptts );
-
-  if( info_flag )
-    {
-      fprintf( stderr, _("[Info] All titles:\n") );
-      for( i = 0;i < tt_srpt->nr_of_srpts;i++ )
-        {
-          int chapters = tt_srpt->title[ i ].nr_of_ptts;
-          if( chapters > 1 )
-            fprintf( stderr, _("[Info] Title %i has %d chapters.\n"),
-                     ( i+1 ), chapters );
-          else
-            fprintf( stderr, _("[Info] Title %i has %d chapter.\n"),
-                     ( i+1 ), chapters );
-
-        }
-    }
-
-
-
-  if( chapid < 0 || chapid >= tt_srpt->title[ titleid-1 ].nr_of_ptts )
-    {
-      fprintf( stderr, _("[Error] Invalid chapter %d\n"), chapid + 1 );
-      ifoClose( vmg_file );
-      DVDClose( dvd );
-      return -1;
-    }
-
-  /**
-   * Make sure the angle number is valid for this title.
-   */
-  for( i = 0;i < tt_srpt->nr_of_srpts;i++ )
-    {
-      sum_angles += tt_srpt->title[ i ].nr_of_angles;
-    }
-
-  fprintf( stderr, _("\n[Info] There are %d angles on this dvd.\n"), sum_angles );
-  if( angle < 0 || angle >= tt_srpt->title[ titleid-1 ].nr_of_angles )
-    {
-      fprintf( stderr, _("[Error] Invalid angle %d\n"), angle + 1 );
-      ifoClose( vmg_file );
-      DVDClose( dvd );
-      return -1;
-    }
-
-  if( info_flag )
-    {
-      fprintf( stderr, _("[Info] All titles:\n") );
-      for(i = 0;i < tt_srpt->nr_of_srpts;i++ )
-        {
-          int angles = tt_srpt->title[ i ].nr_of_angles;
-          if( angles > 1 )
-            fprintf( stderr, _("[Info] Title %i has %d angles.\n"),
-                     ( i+1 ), angles );
-          else
-            fprintf( stderr, _("[Info] Title %i has %d angle.\n"),
-                     ( i+1 ), angles );
-
-        }
-
-      disk_vob_size = get_used_space( provided_input_dir, verbosity_level );
-    }
-
-
-  /*
-   * get the whole vob size via stat( ) manually
-   */
-  if( mounted && !mirror_flag )
-    {
-      vob_size = ( get_vob_size( titleid, provided_input_dir ) ) -
-                 ( seek_start * 2048 ) - ( stop_before_end * 2048 );
-      if( vob_size == 0 || vob_size > 9663676416LL) /*9663676416 equals 9GB */
-        {
-          fprintf( stderr, _("\n[Error] Something went wrong during the size detection of the") );
-          fprintf( stderr, _("\n[Error] vobs, size check at the end won't work (probably), but I continue anyway\n\n") );
-          vob_size = 0;
-        }
-    }
-
-  if( mirror_flag ) /* this gets the size of the whole dvd */
-    {
-      add_end_slash( provided_input_dir );
-      disk_vob_size = get_used_space( provided_input_dir, verbosity_level );
-      /*       vob_size = get_free_space( provided_input_dir,verbosity_level ); */
-    }
-
-
-  /*
-   * check if on the target directory is enough space free
-   * see man statfs for more info
-   */
-
-  pwd_free = get_free_space( pwd,verbosity_level );
-
-  if( fast_switch )
-    block_count = fast_factor;
-  else
-    block_count = 1;
-
-  install_signal_handlers();
-
-  if( watchdog_minutes )
-    {
-      fprintf( stderr, _("\n[Info] Setting watchdog timer to %d minutes\n"), watchdog_minutes );
-      alarm( watchdog_minutes * 60 );
-    }
-
-  /***
-    this is the mirror section
-  ***/
-
-  if( mirror_flag )
-    {/*mirror beginning*/
-      fprintf( stderr, _("\n[Info] DVD-name: %s\n"), dvd_name );
-      if( provided_dvd_name_flag )
-	{
-	  fprintf( stderr, _("\n[Info] Your name for the dvd: %s\n"), provided_dvd_name );
-	  safestrncpy( dvd_name, provided_dvd_name, sizeof(dvd_name)-1 );
+		fprintf( stderr, _("--------------------------------------------------------------------------------\n") );
+		fprintf( stderr, _("[Info] Called: %s\n"), vobcopy_call );
 	}
-      fprintf( stderr, _("[Info]  Disk free: %.0f MB\n"), (float) pwd_free / ( 1024*1024 ) );
-      fprintf( stderr, _("[Info]  Vobs size: %.0f MB\n"), (float) disk_vob_size / ( 1024*1024 ) );
-      if( ( force_flag || pwd_free > disk_vob_size ) && alternate_dir_count < 2 )
-        /* no dirs behind -1, -2 ... since its all in one dir */
-        {
-          char video_ts_dir[263];
-          char number[8];
-          char input_file[280];
-          char output_file[255];
-          int  i, start, title_nr = 0;
-          off_t file_size;
-          double tmp_i = 0, tmp_file_size = 0;
-          int k = 0;
-          char d_name[256];
 
-          safestrncpy( name, pwd,  sizeof(name)-34 ); /*  255 */
-          strncat( name, dvd_name, 33 );
+	/*sanity check: -m and -n are mutually exclusive... */
+	if(titleid_flag && mirror_flag) {
+		fprintf( stderr, _("\n[Error] There can be only one: either -m or -n...'\n") );
+		exit(1);
+	}
 
-          if( !stdout_flag )
-            {
-              makedir ( name );
+	/*
+	 * Check if the provided path is too long
+	 */
 
-              strcat( name, "/VIDEO_TS/" );
+	/* there is still the path as in vobcopy-0.2.0 */
+	if ( optind < argc ) {
+		provided_input_dir_flag = TRUE;
+		if (strlen(argv[optind]) >= 255) {
+			fprintf( stderr, _("\n[Error] Bloody path to long '%s'\n"), argv[optind] );
+			exit( 1 );
+		}
+		safestrncpy( provided_input_dir, argv[optind],sizeof(provided_input_dir)-1 );
+	}
 
-              makedir ( name );
+	/*the path has been given to us */
+	if ( provided_input_dir_flag ) {
+		int result;
+		/* 'mounted' is an enum, it should not get assigned an int -- lb */
+		if ((result = get_device( provided_input_dir, dvd_path )) < 0) {
+			fprintf( stderr, _("[Error] Could not get the device which belongs to the given path!\n") );
+			fprintf( stderr, _("[Hint] Will try to open it as a directory/image file\n") );
+			/*exit( 1 );*/
+		}
+		if (result == 0)
+			mounted = FALSE;
 
-              fprintf( stderr, _("[Info] Writing files to this dir: %s\n"), name );
-            }
-	  /*TODO: substitute with open_dir function */
-          strcpy( video_ts_dir, provided_input_dir );
-          strcat( video_ts_dir, "video_ts"); /*it's either video_ts */
-          dir = opendir( video_ts_dir );     /*or VIDEO_TS*/
-          if ( dir == NULL )
-            {
-              strcpy( video_ts_dir, provided_input_dir );
-              strcat( video_ts_dir, "VIDEO_TS");
-              dir = opendir( video_ts_dir );
-              if ( dir == NULL )
-                {
-                  fprintf( stderr, _("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"));
-                  fprintf( stderr, _("[Error] The dir to be opened was: %s\n"), video_ts_dir );
-                  fprintf( stderr, _("[Hint] Please mail me what your vobcopy call plus -v -v spits out\n"));
-                  exit( 1 );
-                }
-            }
+		if (result == 1)
+			mounted = TRUE;
+	} else { /*need to get the path and device ourselves ( oyo = on your own ) */
+		if ((dvd_count = get_device_on_your_own(provided_input_dir, dvd_path)) <= 0) {
+			fprintf( stderr, _("[Warning] Could not get the device and path! Maybe not mounted the dvd?\n") );
+			fprintf( stderr, _("[Hint] Will try to open it as a directory/image file\n") );
+			/* exit( 1 ); */
+		}
 
-          directory = readdir( dir ); /* thats the . entry */
-          directory = readdir( dir ); /* thats the .. entry */
-          /* according to the file type (vob, ifo, bup) the file gets copied */
-          while( ( directory = readdir( dir ) ) != NULL )
-            {/*main mirror loop*/
+		if( dvd_count > 0)
+			mounted = TRUE;
+		else
+			mounted = FALSE;
+	}
 
-              k = 0;
-              safestrncpy( output_file, name, sizeof(output_file)-1 );
-              /*in dvd specs it says it must be uppercase VIDEO_TS/VTS...
-              but iso9660 mounted dvd's sometimes have it lowercase */
-              while( directory->d_name[k] )
-                {
-                  d_name[k] = toupper (directory->d_name[k] );
-                  k++;
-                }
-              d_name[k] = 0;
+	if (!mounted) {
+		/*see if the path given is a iso file or a VIDEO_TS dir */
+		safestrncpy(dvd_path, provided_input_dir, sizeof(dvd_path)-1);
 
-              /*in order to copy only _one_ file */
-              /*                if( onefile_flag )
-                              {
-                                  if( !strstr( onefile, d_name ) ) maybe other way around*/
-              /*                    continue;
-                              }*/
-              /*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it*/
-              if( onefile_flag )
-                {
-                  char *tokenpos, *tokenpos1;
-                  char tmp[12];
-                  tokenpos = onefile;
-                  if( strstr( tokenpos, "," ) )
-                    {
-                      while( ( tokenpos1 = strstr( tokenpos, "," ) ) ) /*tokens separated by , */
-                        { /*this parses every token without modifying the onefile var */
-                          int len_begin;
-                          len_begin = tokenpos1 - tokenpos;
-                          safestrncpy( tmp, tokenpos, len_begin );
-                          tokenpos = tokenpos1 + 1;
-                          tmp[ len_begin ] = '\0';
-                          if( strstr( d_name, tmp ) )
-                            goto next; /*if the token is found in the d_name copy */
-                          else
-                            continue; /* next token is tested */
-                        }
-                      continue; /*no token matched, next d_name is tested */
-                    }
-                  else
-                    {
-                      if( !strstr( d_name, onefile ) ) /*maybe other way around */
-                        {
-                          continue;
-                        }
-                      else
-                        goto next; /*if the token is found in the d_name copy */
-                      continue; /*no token matched, next d_name is tested */
-                    }
-                }
-next: /*for the goto - ugly, I know... */
+	/* Is the path correct */
+	fprintf( stderr, _("\n[Info] Path to dvd: %s\n"), dvd_path );
 
-              if( stdout_flag ) /*this writes to stdout*/
-                {
-                  streamout = STDOUT_FILENO; /*in other words: 1, see "man stdout" */
-                }
-              else
-                {
-                  if( strstr( d_name, ";?" ) )
-                    {
-                      fprintf( stderr, _("\n[Hint] File on dvd ends in \";?\" (%s)\n"), d_name );
-                      strncat( output_file, d_name, strlen( d_name ) - 2 );
-                    }
-                  else
-                    {
-                      strcat( output_file, d_name );
-                    }
+	if (!(dvd = DVDOpen(dvd_path))) {
+		fprintf( stderr, _("\n[Error] Path thingy didn't work '%s'\n"), dvd_path);
+		fprintf( stderr, _("[Error] Try something like -i /cdrom, /dvd  or /mnt/dvd \n") );
+		if(dvd_count > 1)
+			fprintf( stderr, _("[Hint] By the way, you have %i cdroms|dvds mounted, that probably caused the problem\n"), dvd_count );
+		DVDClose(dvd);
+		exit(1);
+	}
 
-                  fprintf( stderr, _("[Info] Writing to %s \n"), output_file);
+	/*this here gets the dvd name*/
+	if (provided_dvd_name_flag)
+		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name)-1);
+	else
+		get_dvd_name_return = get_dvd_name(dvd_path, dvd_name);
 
-                  if( open( output_file, O_RDONLY ) >= 0 )
-                    {
-                      bool bSkip = FALSE;
+	fprintf( stderr, _("[Info] Name of the dvd: %s\n"), dvd_name );
 
-		      if ( overwrite_all_flag == FALSE )
-			fprintf( stderr, _("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [s]kip or [q]uit?  "), output_file );
-                      /*TODO: add [a]ppend  and seek thought stream till point of append is there */
-                      while ( 1 )
-                        {
-                          /* process a single character from stdin, ignore EOF bytes & newlines*/
-			  if ( overwrite_all_flag == TRUE )
-			    op = 'o';
-			  else
-			    do {
-			      op = fgetc (stdin);
-			    } while(op == EOF || op == '\n');
-                          if( op == 'o' || op == 'x' )
-                            {
-                              if( ( streamout = open( output_file, O_WRONLY | O_TRUNC ) ) < 0 )
-                                {
-                                  fprintf( stderr, _("\n[Error] Error opening file %s\n"), output_file );
-                                  fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
-                                  exit ( 1 );
-                                }
-                              else
-                                close (streamout);
-                              overwrite_flag = TRUE;
-			      if( op == 'x' )
-				{
-				  overwrite_all_flag = TRUE;
+	/* The new part taken from play-title.c*/
+
+	/*
+	 * Load the video manager to find out the information about the titles on
+	 * this disc.
+	 */
+	vmg_file = ifoOpen(dvd, 0);
+	if(!vmg_file) {
+		fprintf( stderr, _("[Error] Can't open VMG info.\n") );
+		DVDClose( dvd );
+		return -1;
+	}
+	tt_srpt = vmg_file->tt_srpt;
+
+	/*
+	 * Get the title with the most chapters since this is probably the main part
+	 */
+	for (i = 0; i < tt_srpt->nr_of_srpts; i++) {
+		sum_chapters += tt_srpt->title[ i ].nr_of_ptts;
+		if(i > 0) {
+			if (tt_srpt->title[i].nr_of_ptts > tt_srpt->title[ most_chapters ].nr_of_ptts)
+				most_chapters = i;
+		}
+	}
+
+	/*no title specified (-n )*/
+	if(longest_title_flag) {
+		titleid = get_longest_title( &dvd );
+		fprintf( stderr, _("[Info] longest title %d.\n"), titleid );
+	}
+
+	/*no title specified (-n )*/
+	if(!titleid_flag)
+		titleid = most_chapters + 1; /*they start counting with 0, I with 1...*/
+
+
+	/* Make sure our title number is valid.*/
+	fprintf( stderr, _("[Info] There are %d titles on this DVD.\n"), tt_srpt->nr_of_srpts);
+
+	if (titleid <= 0 || (titleid-1) >= tt_srpt->nr_of_srpts) {
+		fprintf( stderr, _("[Error] Invalid title %d.\n"), titleid );
+		ifoClose( vmg_file );
+		DVDClose( dvd );
+		return -1;
+	}
+
+
+	/* Make sure the chapter number is valid for this title. */
+	fprintf(stderr, _("[Info] There are %i chapters on the dvd.\n"), sum_chapters );
+	fprintf(stderr, _("[Info] Most chapters has title %i with %d chapters.\n"),
+		(most_chapters + 1), tt_srpt->title[most_chapters].nr_of_ptts);
+
+	if (info_flag) {
+		fprintf( stderr, _("[Info] All titles:\n") );
+		for (i = 0; i < tt_srpt->nr_of_srpts; i++) {
+			int chapters = tt_srpt->title[ i ].nr_of_ptts;
+			if(chapters > 1)
+				fprintf( stderr, _("[Info] Title %i has %d chapters.\n"), (i+1), chapters);
+			else
+				fprintf( stderr, _("[Info] Title %i has %d chapter.\n"),  (i+1), chapters );
+		}
+	}
+
+
+	if (chapid < 0 || chapid >= tt_srpt->title[titleid-1].nr_of_ptts) {
+		fprintf(stderr, _("[Error] Invalid chapter %d\n"), chapid + 1);
+		ifoClose(vmg_file);
+		DVDClose(dvd);
+		return -1;
+	}
+
+	/* Make sure the angle number is valid for this title.*/
+	for (i = 0;i < tt_srpt->nr_of_srpts; i++)
+		sum_angles += tt_srpt->title[ i ].nr_of_angles;
+
+	fprintf( stderr, _("\n[Info] There are %d angles on this dvd.\n"), sum_angles );
+	if (angle < 0 || angle >= tt_srpt->title[titleid-1].nr_of_angles) {
+		fprintf( stderr, _("[Error] Invalid angle %d\n"), angle + 1 );
+		ifoClose( vmg_file );
+		DVDClose( dvd );
+		return -1;
+	}
+
+	if (info_flag) {
+		fprintf(stderr, _("[Info] All titles:\n"));
+
+		for (i = 0; i < tt_srpt->nr_of_srpts; i++) {
+			int angles = tt_srpt->title[ i ].nr_of_angles;
+			if( angles > 1 )
+				fprintf( stderr, _("[Info] Title %i has %d angles.\n"),
+				( i+1 ), angles );
+			else
+				fprintf( stderr, _("[Info] Title %i has %d angle.\n"), (i+1), angles);
+
+		}
+
+		disk_vob_size = get_used_space( provided_input_dir, verbosity_level );
+	}
+
+
+	/*get the whole vob size via stat( ) manually*/
+	if (mounted && !mirror_flag) {
+		vob_size  = get_vob_size(titleid, provided_input_dir);
+		vob_size -= seek_start * 2048;
+		vob_size -= stop_before_end * 2048;
+
+		/*9663676416 equals 9GB */
+		if( vob_size == 0 || vob_size > 9663676416LL) {
+			fprintf( stderr, _("\n[Error] Something went wrong during the size detection of the") );
+			fprintf( stderr, _("\n[Error] vobs, size check at the end won't work (probably), but I continue anyway\n\n") );
+			vob_size = 0;
+		}
+	}
+
+	/*this gets the size of the whole dvd*/
+	if (mirror_flag) {
+		add_end_slash( provided_input_dir );
+		disk_vob_size = get_used_space( provided_input_dir, verbosity_level );
+		/* vob_size = get_free_space(provided_input_dir,verbosity_level);*/
+	}
+
+	/* check if on the target directory is enough space free
+	 * see man statfs for more info
+	 */
+
+	pwd_free = get_free_space( pwd,verbosity_level );
+
+	if (fast_switch)
+		block_count = fast_factor;
+	else
+		block_count = 1;
+
+	install_signal_handlers();
+
+	if (watchdog_minutes) {
+		fprintf( stderr, _("\n[Info] Setting watchdog timer to %d minutes\n"), watchdog_minutes );
+		alarm(watchdog_minutes * 60);
+	}
+
+	/* this is the mirror section */
+
+	/*mirror beginning*/
+	if (mirror_flag) {
+		fprintf( stderr, _("\n[Info] DVD-name: %s\n"), dvd_name );
+
+		if (provided_dvd_name_flag) {
+			fprintf( stderr, _("\n[Info] Your name for the dvd: %s\n"), provided_dvd_name );
+			safestrncpy( dvd_name, provided_dvd_name, sizeof(dvd_name)-1 );
+		}
+
+		fprintf( stderr, _("[Info]  Disk free: %.0f MB\n"), (float) pwd_free / ( 1024*1024 ) );
+		fprintf( stderr, _("[Info]  Vobs size: %.0f MB\n"), (float) disk_vob_size / ( 1024*1024 ) );
+
+		/* no dirs behind -1, -2 ... since its all in one dir */
+		if ((force_flag || pwd_free > disk_vob_size) && alternate_dir_count < 2) {
+			char video_ts_dir[263];
+			char number[8];
+			char input_file[280];
+			char output_file[255];
+			int  i, start, title_nr = 0;
+			off_t file_size;
+			double tmp_i = 0, tmp_file_size = 0;
+			int k = 0;
+			char d_name[256];
+
+			safestrncpy(name, pwd,  sizeof(name)-34 ); /*  255 */
+			strncat(name, dvd_name, 33);
+
+			if(!stdout_flag) {
+				makedir(name);
+
+				strcat(name, "/VIDEO_TS/");
+
+				makedir(name);
+
+				fprintf( stderr, _("[Info] Writing files to this dir: %s\n"), name );
+			}
+
+			/*TODO: substitute with open_dir function */
+			strcpy( video_ts_dir, provided_input_dir );
+			strcat( video_ts_dir, "video_ts"); /*it's either video_ts */
+			dir = opendir( video_ts_dir );     /*or VIDEO_TS*/
+			if (dir == NULL) {
+				strcpy( video_ts_dir, provided_input_dir );
+				strcat( video_ts_dir, "VIDEO_TS");
+				dir = opendir( video_ts_dir );
+				if (dir == NULL) {
+					fprintf( stderr, _("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"));
+					fprintf( stderr, _("[Error] The dir to be opened was: %s\n"), video_ts_dir );
+					fprintf( stderr, _("[Hint] Please mail me what your vobcopy call plus -v -v spits out\n"));
+					exit( 1 );
 				}
-                              break;
-                            }
-                          else if( op == 'q' )
-                            {
-                              DVDCloseFile( dvd_file );
-                              DVDClose( dvd );
-                              exit( 1 );
-                            }
-                          else if( op == 's' )
-                            {
-                              bSkip = TRUE;
-                              break;
-                            }
-                          else
-                            {
-                              fprintf( stderr, _("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [s]kip, or [q]uit the next time ;-)\n") );
-                            }
-                        }
-                      if( bSkip )
-                        continue; /* next file, please! */
-                    }
+			}
 
-                  strcat( output_file, ".partial" );
-
-                  if( open( output_file, O_RDONLY ) >= 0 )
-                    {
-		      if ( overwrite_all_flag == FALSE )
-			fprintf( stderr, _("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n"), output_file );
-                      /*TODO: add [a]ppend  and seek thought stream till point of append is there */
-                      while ( 1 )
-                        {
-			  if ( overwrite_all_flag == TRUE )
-			    op = 'o';
-			  else
-			    {
-			      while ((op = fgetc (stdin)) == EOF)
-				usleep (1);
-			      fgetc ( stdin ); /* probably need to do this for second
-						  time it comes around this loop */
-			    }
-                          if( op == 'o' || op == 'x' )
-                            {
-                              if( ( streamout = open( output_file, O_WRONLY | O_TRUNC ) ) < 0 )
-                                {
-                                  fprintf( stderr, _("\n[Error] Error opening file %s\n"), output_file );
-                                  fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
-                                  exit ( 1 );
-                                }
-			      /*                              else
-							      close( streamout ); */
-                              overwrite_flag = TRUE;
-			      if ( op == 'x' )
-				{
-				   overwrite_all_flag = TRUE;
+			directory = readdir( dir ); /* thats the . entry */
+			directory = readdir( dir ); /* thats the .. entry */
+			/* according to the file type (vob, ifo, bup) the file gets copied */
+			while ((directory = readdir(dir)) != NULL) {/*main mirror loop*/
+				k = 0;
+				safestrncpy( output_file, name, sizeof(output_file)-1 );
+				/*in dvd specs it says it must be uppercase VIDEO_TS/VTS...
+				  but iso9660 mounted dvd's sometimes have it lowercase */
+				while (directory->d_name[k]) {
+					d_name[k] = toupper(directory->d_name[k]);
+					k++;
 				}
-                              break;
-                            }
-                          else if( op == 'q' )
-                            {
-                              DVDCloseFile( dvd_file );
-                              DVDClose( dvd );
-                              exit( 1 );
-                            }
-                          else
-                            {
-                              fprintf( stderr, _("\n[Hint] Please choose [o]verwrite, [x]overwrite all or [q]uit the next time ;-)\n") );
-                            }
-                        }
-                    }
-                  else
-                    {
-                      /*assign the stream */
-                      if( ( streamout = open( output_file, O_WRONLY | O_CREAT, 0644 ) ) < 0 )
-                        {
-                          fprintf( stderr, _("\n[Error] Error opening file %s\n"), output_file );
-                          fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
-                          exit ( 1 );
-                        }
-                    }
-                }
-              /* get the size of that file*/
-              strcpy( input_file, video_ts_dir );
-              strcat( input_file, "/" );
-              strcat( input_file, directory->d_name );
-              stat( input_file, &buf );
-              file_size = buf.st_size;
-              tmp_file_size = file_size;
 
-              memset( bufferin, 0, DVD_VIDEO_LB_LEN * sizeof( unsigned char ) );
+				d_name[k] = 0;
 
-              /*this here gets the title number*/
-              for( i = 1; i <= 99; i++ ) /*there are 100 titles, but 0 is
-                					   named video_ts, the others are 
-                					   vts_number_0.bup */
-                {
-                  sprintf(number, "_%.2i", i);
+				/*in order to copy only _one_ file */
+				/* if (onefile_flag) {*/
+				/*	if( !strstr( onefile, d_name ) ) maybe other way around*/
+				/*		continue;
+				/* } */
+				/*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it*/
+				if (onefile_flag) {
+					char *tokenpos, *tokenpos1;
+					char tmp[12];
+					tokenpos = onefile;
+					if (strstr(tokenpos, ",")) {
+						/*tokens separated by , */
+						while (tokenpos1 =strstr(tokenpos, ",")) {
+							/*this parses every token without modifying the onefile var */
+							int len_begin;
+							len_begin = tokenpos1 - tokenpos;
+							safestrncpy( tmp, tokenpos, len_begin );
+							tokenpos = tokenpos1 + 1;
+							tmp[ len_begin ] = '\0';
+							if( strstr( d_name, tmp ) )
+								goto next; /*if the token is found in the d_name copy */
+							else
+								continue; /* next token is tested */
+						}
 
-                  if ( strstr( directory->d_name, number ) )
-                    {
-                      title_nr = i;
+						continue; /*no token matched, next d_name is tested */
+					} else {
+						if( !strstr( d_name, onefile ) ) /*maybe other way around */
+							continue;
+						else
+							goto next; /*if the token is found in the d_name copy */
 
-                      break; /*number found, is in i now*/
-                    }
-                  /*no number -> video_ts is the name -> title_nr = 0*/
-                }
+						continue; /*no token matched, next d_name is tested */
+					}
+				}
 
-              /*which file type is it*/
-              if( strstr( directory->d_name, ".bup" )
-                  || strstr( directory->d_name, ".BUP" ) )
-                {
-                  dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_BACKUP_FILE );
-                  /*this copies the data to the new file*/
-                  for( i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++)
-                    {
-                      DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
-                      if( write( streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0 )
-                        {
-                          fprintf( stderr, _("\n[Error] Error writing to %s \n"), output_file );
-                          fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
-                          exit( 1 );
-                        }
-                      /* progress indicator */
-                      tmp_i = i;
-                      fprintf( stderr, _("%4.0fkB of %4.0fkB written\r"),
-                               ( tmp_i+1 )*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
-                    }
-                  fprintf( stderr, _("\n"));
+				next: /*for the goto - ugly, I know... */
+
+				if (stdout_flag) /*this writes to stdout*/
+					streamout = STDOUT_FILENO; /*in other words: 1, see "man stdout" */
+				else {
+					if (strstr(d_name, ";?")) {
+						fprintf( stderr, _("\n[Hint] File on dvd ends in \";?\" (%s)\n"), d_name );
+						strncat( output_file, d_name, strlen( d_name ) - 2 );
+					} else
+						strcat( output_file, d_name );
+
+					fprintf( stderr, _("[Info] Writing to %s \n"), output_file);
+
+					if (open(output_file, O_RDONLY) >= 0) {
+						bool bSkip = FALSE;
+
+						if (overwrite_all_flag == FALSE)
+							fprintf( stderr, _("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [s]kip or [q]uit?  "), output_file );
+
+						/*TODO: add [a]ppend  and seek thought stream till point of append is there */
+						while (1) {
+							/* process a single character from stdin, ignore EOF bytes & newlines*/
+							if (overwrite_all_flag == TRUE)
+								op = 'o';
+							else
+								do {
+									op = fgetc (stdin);
+								} while(op == EOF || op == '\n');
+
+							if (op == 'o' || op == 'x') {
+								if ((streamout = open(output_file, O_WRONLY | O_TRUNC)) < 0) {
+									fprintf(stderr, _("\n[Error] Error opening file %s\n"), output_file);
+									fprintf(stderr, _("[Error] Error: %s\n"), strerror(errno));
+									exit(1);
+								} else
+									close (streamout);
+								overwrite_flag = TRUE;
+								if(op == 'x')
+									overwrite_all_flag = TRUE;
+								break;
+							} else if (op == 'q') {
+								DVDCloseFile( dvd_file );
+								DVDClose( dvd );
+								exit(1);
+							} else if( op == 's' ) {
+								bSkip = TRUE;
+								break;
+							} else {
+								fprintf( stderr, _("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [s]kip, or [q]uit the next time ;-)\n") );
+							}
+						}
+
+						if (bSkip)
+							continue; /* next file, please! */
+					}
+
+					strcat(output_file, ".partial");
+
+					if (open(output_file, O_RDONLY) >= 0) {
+						if (overwrite_all_flag == FALSE)
+							fprintf( stderr, _("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n"), output_file );
+						/*TODO: add [a]ppend  and seek thought stream till point of append is there */
+						while (1) {
+							if (overwrite_all_flag == TRUE)
+								op = 'o';
+							else {
+								while ((op = fgetc (stdin)) == EOF)
+									usleep (1);
+								fgetc(stdin); /* probably need to do this for second
+										    time it comes around this loop */
+							}
+
+							if (op == 'o' || op == 'x') {
+								if ((streamout = open(output_file, O_WRONLY | O_TRUNC )) < 0) {
+									fprintf( stderr, _("\n[Error] Error opening file %s\n"), output_file );
+									fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
+									exit ( 1 );
+								}
+								/* else
+									close( streamout ); */
+								overwrite_flag = TRUE;
+								if (op == 'x')
+									overwrite_all_flag = TRUE;
+								break;
+							} else if (op == 'q') {
+								DVDCloseFile(dvd_file);
+								DVDClose(dvd);
+								exit(1);
+							} else
+								fprintf( stderr, _("\n[Hint] Please choose [o]verwrite, [x]overwrite all or [q]uit the next time ;-)\n") );
+						}
+					}
+				} else {
+					/*assign the stream */
+					if ((streamout = open(output_file, O_WRONLY | O_CREAT, 0644 )) < 0) {
+							fprintf(stderr, _("\n[Error] Error opening file %s\n"), output_file);
+							fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
+							exit ( 1 );
+					}
+				}
+			}
+
+			/* get the size of that file*/
+			strcpy( input_file, video_ts_dir );
+			strcat( input_file, "/" );
+			strcat( input_file, directory->d_name );
+			stat( input_file, &buf );
+			file_size = buf.st_size;
+			tmp_file_size = file_size;
+
+			memset( bufferin, 0, DVD_VIDEO_LB_LEN * sizeof( unsigned char ) );
+
+			/*this here gets the title number*/
+			for (i = 1; i <= 99; i++) {
+					/* there are 100 titles, but 0 is
+					 * named video_ts, the others are 
+					 * vts_number_0.bup
+					 */
+					sprintf(number, "_%.2i", i);
+
+				if (strstr( directory->d_name, number)) {
+					title_nr = i;
+
+					break; /*number found, is in i now*/
+				}
+				/*no number -> video_ts is the name -> title_nr = 0*/
+			}
+
+			/*which file type is it*/
+			if (strstr( directory->d_name, ".bup" ) ||
+			    strstr( directory->d_name, ".BUP" )) {
+				dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_BACKUP_FILE );
+				/*this copies the data to the new file*/
+				for(i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++) {
+					DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
+					if(write( streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0) {
+						fprintf(stderr, _("\n[Error] Error writing to %s \n"), output_file);
+						fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
+						exit(1);
+					}
+
+					/* progress indicator */
+					tmp_i = i;
+					fprintf(stderr, _("%4.0fkB of %4.0fkB written\r"),
+						(tmp_i+1)*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
+				}
+
+			fprintf( stderr, _("\n"));
                   if( !stdout_flag )
                     {
                       if( fdatasync( streamout ) < 0 )
