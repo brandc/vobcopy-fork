@@ -683,7 +683,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (longest_title_flag) {	/*no title specified (-n ) */
-		titleid = get_longest_title(&dvd);
+		titleid = get_longest_title(dvd);
 		fprintf(stderr, "[Info] longest title %d.\n", titleid);
 	}
 
@@ -1391,9 +1391,9 @@ int main(int argc, char *argv[])
 
 	 */
 
-  /*********************
-   * this is the main read and copy loop
-   *********************/
+	/*********************
+	 * this is the main read and copy loop
+	 *********************/
 	fprintf(stderr, "\n[Info] DVD-name: %s\n", dvd_name);
 
 	/*if the user has given a name for the file */

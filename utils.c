@@ -13,7 +13,20 @@ void die(int ret, const char *cause_of_death, ...)
 	vfprintf(stderr, cause_of_death, args);
 	va_end(args);
 
-	exit(1);
+	exit(ret);
+}
+
+/*printf for stderr*/
+void printe(char *str, ...)
+{
+	va_list args;
+
+	va_start(args, str);
+	if (vfprintf(stderr, str, args) < 0)
+		die(1, "vfprintf failed\n");
+	va_end(args);
+
+	return;
 }
 
 void strrepl(char *str, char orig, char new) {
