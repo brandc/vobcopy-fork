@@ -17,16 +17,6 @@
 #include "vobcopy.h"
 #include <dvdread/ifo_read.h>
 
-void strrepl(char *str, char orig, char new) {
-	/* B. Watson, aka Urchlay on freenode
-	 * wrote this entire function
-	 */
-	while (*str) {
-		if(*str == orig) *str = new;
-		str++;
-	}
-}
-
 /* included from cdtitle.c (thx nils *g)
  * get the Title
  * returns 0 on success or a value < 0 on error
@@ -45,14 +35,14 @@ int get_dvd_name(const char *device, char *title)
 	strncpy(title, new_title, sizeof(title)-1);
 
 	/*Remove spaces in lieu of underscores*/
-	strrepl(title, ' ', '_', strlen(title));
+	strrepl(title, ' ', '_');
 
 	return 0;
 }
 #else /* !defined(__sun) */
 int get_dvd_name(const char *device, char *title)
 {
-	int i = 0
+	int i = 0;
 	int last = 0;
 	int bytes_read;
 	int filehandle = 0;
@@ -108,7 +98,7 @@ int get_dvd_name(const char *device, char *title)
 		title[ last + 1 ] = '\0';
 
 	/*Remove spaces in lieu of underscores*/
-	strrepl(title, ' ', '_', strlen(title));
+	strrepl(title, ' ', '_');
 
 	return 0;
 }
@@ -443,19 +433,19 @@ int get_device_on_your_own( char *path, char *device )
 	FILE *tmp_streamin;
 	char  tmp_bufferin[MAX_STRING];
 /*	char  tmp_path[20];*/
-	int l         = 0
+	int l         = 0;
 	int dvd_count = 0;
 	char *k;
 	/* read the device out of /etc/mtab */
 
 	if (tmp_streamin = fopen("/etc/mtab", "r")) {
 		/* strcpy(tmp_path, "iso9660"); */
-		memset(tmp_bufferin, 0, MAX_STRING * sizeof( char ));
+		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin))  {
 			/*if(strstr( tmp_bufferin, tmp_path)) */
-			if (strstr( tmp_bufferin, "iso9660") || 
-			    strstr( tmp_bufferin, "udf")     || 
-			    strstr( tmp_bufferin, "cdrom")   || 
+			if (strstr( tmp_bufferin, "iso9660") ||
+			    strstr( tmp_bufferin, "udf")     ||
+			    strstr( tmp_bufferin, "cdrom")   ||
 			    strstr( tmp_bufferin, "dvd")) {
 				dvd_count++; /*count every cd we find */
 				/* extract the device */
@@ -546,9 +536,9 @@ off_t get_vob_size( int title, char *provided_input_dir )
 {
 	/*Why 278 exactly?*/
 	char stat_path[278];
-	char path_to_vobs[278], 
-	char path_to_vobs1[278], 
-	char path_to_vobs2[278], 
+	char path_to_vobs[278];
+	char path_to_vobs1[278];
+	char path_to_vobs2[278];
 	char path_to_vobs3[278];
 
 	int subvob;
