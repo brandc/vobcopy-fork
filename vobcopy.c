@@ -101,9 +101,9 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind, optopt;
 
-  /**
-   *this is taken from play_title.c
-   */
+	/**
+	 *this is taken from play_title.c
+	 */
 	int titleid = 2, chapid = 0, pgc_id, start_cell;
 	int angle = 0, ttn, pgn, sum_chapters = 0;
 	int sum_angles = 0, most_chapters = 0;
@@ -114,14 +114,14 @@ int main(int argc, char *argv[])
 	pgc_t *cur_pgc;
 
 	/*
-	   this is for the mirror feature (readdir)
+	 * this is for the mirror feature (readdir)
 	 */
 	struct dirent *directory;
 	DIR *dir;
 
-  /**
-   *getopt-long
-   */
+	/**
+	 *getopt-long
+	 */
 #ifdef HAVE_GETOPT_LONG
 	int option_index = 0;
 	static struct option long_options[] = {
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 #endif
 
 	/* initialize string */
-	dvd_path[0] = '\0';
+	memset(dvd_path, '\0', sizeof(dvd_path));
 
 	/*
 	 * the getopt part (getting the options from command line)
@@ -463,7 +463,7 @@ int main(int argc, char *argv[])
 			printe("[Error] Wrong option.\n");
 			usage(argv[0]);
 		}
-	}
+	} /*End of optopt while loop*/
 
 	printe("Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
 	printe("[Hint] All lines starting with \"libdvdread:\" are not from vobcopy but from the libdvdread-library\n");
@@ -549,9 +549,8 @@ int main(int argc, char *argv[])
 				if (!force_flag)
 					exit(1);
 			}
-		} else {
+		} else
 			close(temp);
-		}
 
 		if (chmod(logfile_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
 			printf("[Error] Error: %s\n", strerror(errno));
@@ -611,8 +610,7 @@ int main(int argc, char *argv[])
 
 		if (result == 1)
 			mounted = TRUE;
-	} else {		/*need to get the path and device ourselves ( oyo = on your own ) */
-
+	} else {/*need to get the path and device ourselves ( oyo = on your own ) */
 		if ((dvd_count = get_device_on_your_own(provided_input_dir, dvd_path)) <= 0) {
 			printe("[Warning] Could not get the device and path! Maybe not mounted the dvd?\n");
 			printe("[Hint] Will try to open it as a directory/image file\n");
@@ -747,7 +745,7 @@ int main(int argc, char *argv[])
 	if (mounted && !mirror_flag) {
 		vob_size = (get_vob_size(titleid, provided_input_dir)) - (seek_start * 2048) - (stop_before_end * 2048);
 
-		/*9663676416 equals 9GB*/
+		/*9663676416 == 9GB*/
 		if (vob_size == 0 || vob_size > 9663676416LL) {
 			printe("\n[Error] Something went wrong during the size detection of the");
 			printe("\n[Error] vobs, size check at the end won't work (probably), but I continue anyway\n\n");
@@ -957,7 +955,7 @@ int main(int argc, char *argv[])
 							if (overwrite_all_flag == TRUE)
 								op = 'o';
 							else {
-								while ((op = fgetc (stdin)) == EOF)
+								while ((op = fgetc(stdin)) == EOF)
 									usleep(1);
 								fgetc(stdin);	/* probably need to do this for second
 										   time it comes around this loop */
@@ -1288,8 +1286,7 @@ int main(int argc, char *argv[])
 		   vob_size, 
 		   ( off_t ) ( file_size_in_blocks ) * ( off_t ) DVD_VIDEO_LB_LEN, 
 		   ( off_t ) vob_size - ( off_t ) ( ( off_t )( file_size_in_blocks ) * ( off_t ) ( DVD_VIDEO_LB_LEN ) ) ); */
-		printe(
-			"[Info] Vob_size (stat) = %lu\n[Info] libdvdsize      = %lu\n",
+		printe("[Info] Vob_size (stat) = %lu\n[Info] libdvdsize      = %lu\n",
 			(long unsigned int)vob_size,
 			(long unsigned int)((off_t) (file_size_in_blocks) *
 					    (off_t) DVD_VIDEO_LB_LEN));
@@ -1414,8 +1411,7 @@ int main(int argc, char *argv[])
 					if (overwrite_all_flag == TRUE)
 						op = 'o';
 					else {
-						while ((op =
-							fgetc(stdin)) == EOF)
+						while ((op = fgetc(stdin)) == EOF)
 							usleep(1);
 						fgetc(stdin);	/* probably need to do this for second time it comes around this loop */
 					}
@@ -1458,12 +1454,12 @@ int main(int argc, char *argv[])
 					if (overwrite_all_flag == TRUE)
 						op = 'o';
 					else {
-						while ((op =
-							fgetc(stdin)) == EOF)
+						while ((op = fgetc(stdin)) == EOF)
 							usleep(1);
 						fgetc(stdin);	/* probably need to do this for second time it
 								   comes around this loop */
 					}
+
 					if (op == 'o' || op == 'x') {
 #if defined( HAS_LARGEFILE )
 						if ((streamout = open(name, O_WRONLY | O_TRUNC | O_LARGEFILE)) < 0)
