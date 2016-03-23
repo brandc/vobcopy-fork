@@ -1378,19 +1378,6 @@ int main(int argc, char *argv[])
 			exit(1);
 	}
 
-	/*
-	   from alt.tasteless.jokes:
-
-	   A farmer walks into his bedroom with a sheep under his arm.
-	   "Honey, this pig is what I fuck when you don't feel well."
-
-	   The wife looks up from the magazine she's reading and says,
-	   "That's not a pig, it's a sheep."
-
-	   The man replies, "I was talking to the sheep."
-
-	 */
-
 	/*********************
 	 * this is the main read and copy loop
 	 *********************/
