@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-void die(const char *cause_of_death, ...)
+void die(int ret, const char *cause_of_death, ...)
 {
 	va_list args;
 
