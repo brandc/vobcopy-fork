@@ -1008,242 +1008,241 @@ and potentially fatal."  - Thanks Leigh!*/
 								} else
 									fprintf( stderr, _("\n[Hint] Please choose [o]verwrite, [x]overwrite all or [q]uit the next time ;-)\n") );
 							}
+						} else {
+							/*assign the stream */
+							if ((streamout = open(output_file, O_WRONLY | O_CREAT, 0644 )) < 0) {
+								fprintf(stderr, _("\n[Error] Error opening file %s\n"), output_file);
+								fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
+								exit(1);
+							}
 						}
-					} else {
-						/*assign the stream */
-						if ((streamout = open(output_file, O_WRONLY | O_CREAT, 0644 )) < 0) {
-							fprintf(stderr, _("\n[Error] Error opening file %s\n"), output_file);
-							fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
-							exit ( 1 );
+					}
+
+					/* get the size of that file*/
+					strcpy( input_file, video_ts_dir );
+					strcat( input_file, "/" );
+					strcat( input_file, directory->d_name );
+					stat( input_file, &buf );
+					file_size = buf.st_size;
+					tmp_file_size = file_size;
+
+					memset( bufferin, 0, DVD_VIDEO_LB_LEN * sizeof( unsigned char ) );
+
+					/*this here gets the title number*/
+					for (i = 1; i <= 99; i++) {
+							/* there are 100 titles, but 0 is
+							* named video_ts, the others are 
+							* vts_number_0.bup
+							*/
+							sprintf(number, "_%.2i", i);
+
+						if (strstr( directory->d_name, number)) {
+							title_nr = i;
+
+							break; /*number found, is in i now*/
 						}
-					}
-				}
-
-				/* get the size of that file*/
-				strcpy( input_file, video_ts_dir );
-				strcat( input_file, "/" );
-				strcat( input_file, directory->d_name );
-				stat( input_file, &buf );
-				file_size = buf.st_size;
-				tmp_file_size = file_size;
-
-				memset( bufferin, 0, DVD_VIDEO_LB_LEN * sizeof( unsigned char ) );
-
-				/*this here gets the title number*/
-				for (i = 1; i <= 99; i++) {
-						/* there are 100 titles, but 0 is
-						 * named video_ts, the others are 
-						 * vts_number_0.bup
-						 */
-						sprintf(number, "_%.2i", i);
-
-					if (strstr( directory->d_name, number)) {
-						title_nr = i;
-
-						break; /*number found, is in i now*/
-					}
-					/*no number -> video_ts is the name -> title_nr = 0*/
-				}
-
-				/*which file type is it*/
-				if (strstr( directory->d_name, ".bup" ) ||
-				    strstr( directory->d_name, ".BUP" )) {
-					dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_BACKUP_FILE );
-					/*this copies the data to the new file*/
-					for(i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++) {
-						DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
-						if(write( streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0) {
-							fprintf(stderr, _("\n[Error] Error writing to %s \n"), output_file);
-							fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
-							exit(1);
-						}
-
-						/* progress indicator */
-						tmp_i = i;
-						fprintf(stderr, _("%4.0fkB of %4.0fkB written\r"),
-							(tmp_i+1)*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
+						/*no number -> video_ts is the name -> title_nr = 0*/
 					}
 
-					fprintf( stderr, _("\n"));
-					if(!stdout_flag) {
-						if(fdatasync(streamout) < 0) {
-							fprintf( stderr, _("\n[Error] error writing to %s \n"), output_file );
-							fprintf( stderr, _("[Error] error: %s\n"), strerror( errno ) );
-							exit( 1 );
-						}
-
-						close( streamout );
-						re_name( output_file );
-					}
-				}
-
-				if(strstr( directory->d_name, ".ifo" ) ||
-				   strstr( directory->d_name, ".IFO" )) {
-					dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_FILE );
-
-					/*this copies the data to the new file*/
-					for(i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++) {
-						DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
-						if(write(streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0) {
-							fprintf( stderr, _("\n[Error] Error writing to %s \n"), output_file );
-							fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
-							exit( 1 );
-						}
-						/* progress indicator */
-						tmp_i = i;
-						fprintf( stderr, _("%4.0fkB of %4.0fkB written\r"),
-							(tmp_i+1)*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
-					}
-
-					fprintf( stderr, _("\n"));
-					if(!stdout_flag) {
-						if(fdatasync(streamout) < 0) {
-							fprintf(stderr, _("\n[Error] error writing to %s \n"), output_file);
-							fprintf(stderr, _("[Error] error: %s\n"), strerror(errno));
-							exit(1);
-						}
-
-						close( streamout );
-						re_name( output_file );
-					}
-				}
-
-				if(strstr( directory->d_name, ".vob") ||
-				   strstr( directory->d_name, ".VOB")) {
-					if(directory->d_name[7] == 48 || title_nr == 0) {
-						/*this is vts_xx_0.vob or video_ts.vob, a menu vob*/
-						dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_MENU_VOBS );
-						start = 0 ;
-					} else
-						dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_TITLE_VOBS );
-
-					/* 49 means in ascii 1 and 48 0 */
-					if( directory->d_name[7] == 49 || directory->d_name[7] == 48 ) {
-						/* reset start when at beginning of Title */
-						start = 0 ;
-					}
-
-					/* 49 means in ascii 1 and 58 :  (i.e. over 9)*/
-					if( directory->d_name[7] > 49 && directory->d_name[7] < 58 ) {
-						off_t culm_single_vob_size = 0;
-						int a, subvob;
-
-						subvob = ( directory->d_name[7] - 48 );
-
-						for(a = 1; a < subvob; a++) {
-							if( strstr( input_file, ";?" ) )
-								input_file[ strlen( input_file ) - 7 ] = ( a + 48 );
-							else
-								input_file[ strlen( input_file ) - 5 ] = ( a + 48 );
-
-							/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 );*/
-							if( stat( input_file, &buf ) < 0 ) {
-								fprintf( stderr, _("[Info] Can't stat() %s.\n"), input_file );
-								exit( 1 );
+					/*which file type is it*/
+					if (strstr( directory->d_name, ".bup" ) ||
+					    strstr( directory->d_name, ".BUP" )) {
+						dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_BACKUP_FILE );
+						/*this copies the data to the new file*/
+						for(i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++) {
+							DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
+							if(write( streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0) {
+								fprintf(stderr, _("\n[Error] Error writing to %s \n"), output_file);
+								fprintf(stderr, _("[Error] Error: %s\n"), strerror( errno ));
+								exit(1);
 							}
 
-							culm_single_vob_size += buf.st_size;
-							if( verbosity_level > 1 )
-								fprintf( stderr, _("[Info] Vob %d %d (%s) has a size of %lli\n"), title_nr, subvob, input_file, buf.st_size );
+							/* progress indicator */
+							tmp_i = i;
+							fprintf(stderr, _("%4.0fkB of %4.0fkB written\r"),
+								(tmp_i+1)*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
 						}
 
-						start = ( culm_single_vob_size / DVD_VIDEO_LB_LEN );
-						/*start = ( ( ( directory->d_name[7] - 49 ) * 512 * 1024 ) - ( directory->d_name[7] - 49 ) );  */
-						/* this here seeks d_name[7] 
-						* (which is the 3 in vts_01_3.vob) Gigabyte (which is equivalent to 512 * 1024 blocks 
-						* (a block is 2kb) in the dvd stream in order to reach the 3 in the above example.
-						* NOT! the sizes of the "1GB" files aren't 1GB... 
-						*/
-					}
-
-					/*this copies the data to the new file*/
-					if( verbosity_level > 1)
-						fprintf( stderr, _("[Info] Start of %s at %d blocks \n"), output_file, start );
-					file_block_count = block_count;
-					starttime = time(NULL);
-					for( i = start; ( i - start ) * DVD_VIDEO_LB_LEN < file_size; i += file_block_count) {
-						int tries = 0, skipped_blocks = 0; 
-						/* Only read and write as many blocks as there are left in the file */
-						if ((i - start + file_block_count ) * DVD_VIDEO_LB_LEN > file_size)
-							file_block_count = ( file_size / DVD_VIDEO_LB_LEN ) - ( i - start );
-
-						/* DVDReadBlocks( dvd_file, i, 1, bufferin );this has to be wrong with the 1 there...*/
-
-						while((blocks = DVDReadBlocks(dvd_file, i, file_block_count, bufferin )) <= 0 && tries < 10) {
-							if(tries == 9) {
-								i += file_block_count;
-								skipped_blocks +=1;
-								overall_skipped_blocks +=1;
-								tries=0;
+						fprintf( stderr, _("\n"));
+						if(!stdout_flag) {
+							if(fdatasync(streamout) < 0) {
+								fprintf( stderr, _("\n[Error] error writing to %s \n"), output_file );
+								fprintf( stderr, _("[Error] error: %s\n"), strerror( errno ) );
+								exit(1);
 							}
-							/*if( verbosity_level >= 1 ) 
-								fprintf( stderr, _("[Warn] Had to skip %d blocks (reading block %d)! \n "), skipped_blocks, i ); */
-							tries++;
+
+							close( streamout );
+							re_name( output_file );
 						}
-
-						if(verbosity_level >= 1 && skipped_blocks > 0)
-							fprintf(stderr, _("[Warn] Had to skip (couldn't read) %d blocks (before block %d)! \n "), skipped_blocks, i);
-
-						/*TODO: this skipping here writes too few bytes to the output */
-						if(write( streamout, bufferin, DVD_VIDEO_LB_LEN * blocks ) < 0) {
-							fprintf( stderr, _("\n[Error] Error writing to %s \n"), output_file );
-							fprintf( stderr, _("[Error] Error: %s, errno: %d \n"), strerror( errno ), errno );
-							exit(1);
-						}
-
-						/*progression bar*/
-						/*this here doesn't work with -F 10 */
-						/*if( !( ( ( ( i-start )+1 )*DVD_VIDEO_LB_LEN )%( 1024*1024 ) ) ) */
-						progressUpdate(starttime, (int)(( ( i-start+1 )*DVD_VIDEO_LB_LEN )), (int)(tmp_file_size+2048), FALSE);
-						/*
-						* if(check_progress()) {
-						* 	tmp_i = ( i-start );
-						*
-						* 	percent = ( ( ( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )*100 )/tmp_file_size );
-						* 	fprintf( stderr, _("\r%4.0fMB of %4.0fMB written "),
-						* 		( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )/( 1024*1024 ),
-						* 		( tmp_file_size+2048 )/( 1024*1024 ) );
-						* 	fprintf( stderr, _("( %3.1f %% ) "), percent );
-						* }
-						*/
 					}
-					/*this is just so that at the end it actually says 100.0% all the time... */
-					/*TODO: if it is correct to always assume it's 100% is a good question.... */
-					/*fprintf( stderr, _("\r%4.0fMB of %4.0fMB written "),
-					 *	  (( tmp_i+1 )*DVD_VIDEO_LB_LEN )/( 1024*1024 ),
-					 *	   ( tmp_file_size+2048 )/( 1024*1024 ) );
-					 * fprintf( stderr, _("( 100.0%% ) ") );
-					 */
-					lastpos = 0;
-					progressUpdate(starttime, (int)(( ( i-start+1 )*DVD_VIDEO_LB_LEN )), (int)(tmp_file_size+2048), TRUE);
-					start=i;
-					fprintf( stderr, _("\n") );
-					if(!stdout_flag) {
-						if(fdatasync(streamout) < 0) {
-							fprintf( stderr, _("\n[Error] error writing to %s \n"), output_file );
-							fprintf( stderr, _("[Error] error: %s\n"), strerror( errno ) );
-							exit(1);
+
+					if(strstr( directory->d_name, ".ifo" ) ||
+					   strstr( directory->d_name, ".IFO" )) {
+						dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_INFO_FILE );
+
+						/*this copies the data to the new file*/
+						for(i = 0; i*DVD_VIDEO_LB_LEN < file_size; i++) {
+							DVDReadBytes( dvd_file, bufferin, DVD_VIDEO_LB_LEN );
+							if(write(streamout, bufferin, DVD_VIDEO_LB_LEN ) < 0) {
+								fprintf( stderr, _("\n[Error] Error writing to %s \n"), output_file );
+								fprintf( stderr, _("[Error] Error: %s\n"), strerror( errno ) );
+								exit(1);
+							}
+							/* progress indicator */
+							tmp_i = i;
+							fprintf( stderr, _("%4.0fkB of %4.0fkB written\r"),
+								(tmp_i+1)*( DVD_VIDEO_LB_LEN/1024 ), tmp_file_size/1024 );
 						}
 
-						close( streamout );
-						re_name( output_file );
+						fprintf( stderr, _("\n"));
+						if(!stdout_flag) {
+							if(fdatasync(streamout) < 0) {
+								fprintf(stderr, _("\n[Error] error writing to %s \n"), output_file);
+								fprintf(stderr, _("[Error] error: %s\n"), strerror(errno));
+								exit(1);
+							}
+
+							close(streamout);
+							re_name(output_file);
+						}
+					}
+
+					if(strstr( directory->d_name, ".vob") ||
+					   strstr( directory->d_name, ".VOB")) {
+						if(directory->d_name[7] == 48 || title_nr == 0) {
+							/*this is vts_xx_0.vob or video_ts.vob, a menu vob*/
+							dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_MENU_VOBS );
+							start = 0 ;
+						} else
+							dvd_file = DVDOpenFile( dvd, title_nr, DVD_READ_TITLE_VOBS );
+
+						/* 49 means in ascii 1 and 48 0 */
+						if( directory->d_name[7] == 49 || directory->d_name[7] == 48 ) {
+							/* reset start when at beginning of Title */
+							start = 0 ;
+						}
+
+						/* 49 means in ascii 1 and 58 :  (i.e. over 9)*/
+						if( directory->d_name[7] > 49 && directory->d_name[7] < 58 ) {
+							off_t culm_single_vob_size = 0;
+							int a, subvob;
+
+							subvob = ( directory->d_name[7] - 48 );
+
+							for(a = 1; a < subvob; a++) {
+								if( strstr( input_file, ";?" ) )
+									input_file[ strlen( input_file ) - 7 ] = ( a + 48 );
+								else
+									input_file[ strlen( input_file ) - 5 ] = ( a + 48 );
+
+								/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 );*/
+								if( stat( input_file, &buf ) < 0 ) {
+									fprintf( stderr, _("[Info] Can't stat() %s.\n"), input_file );
+									exit(1);
+								}
+
+								culm_single_vob_size += buf.st_size;
+								if( verbosity_level > 1 )
+									fprintf( stderr, _("[Info] Vob %d %d (%s) has a size of %lli\n"), title_nr, subvob, input_file, buf.st_size );
+							}
+
+							start = ( culm_single_vob_size / DVD_VIDEO_LB_LEN );
+							/*start = ( ( ( directory->d_name[7] - 49 ) * 512 * 1024 ) - ( directory->d_name[7] - 49 ) );  */
+							/* this here seeks d_name[7] 
+							* (which is the 3 in vts_01_3.vob) Gigabyte (which is equivalent to 512 * 1024 blocks 
+							* (a block is 2kb) in the dvd stream in order to reach the 3 in the above example.
+							* NOT! the sizes of the "1GB" files aren't 1GB... 
+							*/
+						}
+
+						/*this copies the data to the new file*/
+						if( verbosity_level > 1)
+							fprintf( stderr, _("[Info] Start of %s at %d blocks \n"), output_file, start );
+						file_block_count = block_count;
+						starttime = time(NULL);
+						for( i = start; ( i - start ) * DVD_VIDEO_LB_LEN < file_size; i += file_block_count) {
+							int tries = 0, skipped_blocks = 0; 
+							/* Only read and write as many blocks as there are left in the file */
+							if ((i - start + file_block_count ) * DVD_VIDEO_LB_LEN > file_size)
+								file_block_count = ( file_size / DVD_VIDEO_LB_LEN ) - ( i - start );
+
+							/* DVDReadBlocks( dvd_file, i, 1, bufferin );this has to be wrong with the 1 there...*/
+
+							while((blocks = DVDReadBlocks(dvd_file, i, file_block_count, bufferin )) <= 0 && tries < 10) {
+								if(tries == 9) {
+									i += file_block_count;
+									skipped_blocks +=1;
+									overall_skipped_blocks +=1;
+									tries=0;
+								}
+								/*if( verbosity_level >= 1 ) 
+									fprintf( stderr, _("[Warn] Had to skip %d blocks (reading block %d)! \n "), skipped_blocks, i ); */
+								tries++;
+							}
+
+							if(verbosity_level >= 1 && skipped_blocks > 0)
+								fprintf(stderr, _("[Warn] Had to skip (couldn't read) %d blocks (before block %d)! \n "), skipped_blocks, i);
+
+							/*TODO: this skipping here writes too few bytes to the output */
+							if(write( streamout, bufferin, DVD_VIDEO_LB_LEN * blocks ) < 0) {
+								fprintf( stderr, _("\n[Error] Error writing to %s \n"), output_file );
+								fprintf( stderr, _("[Error] Error: %s, errno: %d \n"), strerror( errno ), errno );
+								exit(1);
+							}
+
+							/*progression bar*/
+							/*this here doesn't work with -F 10 */
+							/*if( !( ( ( ( i-start )+1 )*DVD_VIDEO_LB_LEN )%( 1024*1024 ) ) ) */
+							progressUpdate(starttime, (int)(( ( i-start+1 )*DVD_VIDEO_LB_LEN )), (int)(tmp_file_size+2048), FALSE);
+							/*
+							* if(check_progress()) {
+							* 	tmp_i = ( i-start );
+							*
+							* 	percent = ( ( ( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )*100 )/tmp_file_size );
+							* 	fprintf( stderr, _("\r%4.0fMB of %4.0fMB written "),
+							* 		( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )/( 1024*1024 ),
+							* 		( tmp_file_size+2048 )/( 1024*1024 ) );
+							* 	fprintf( stderr, _("( %3.1f %% ) "), percent );
+							* }
+							*/
+						}
+						/*this is just so that at the end it actually says 100.0% all the time... */
+						/*TODO: if it is correct to always assume it's 100% is a good question.... */
+						/*fprintf( stderr, _("\r%4.0fMB of %4.0fMB written "),
+						*	  (( tmp_i+1 )*DVD_VIDEO_LB_LEN )/( 1024*1024 ),
+						*	   ( tmp_file_size+2048 )/( 1024*1024 ) );
+						* fprintf( stderr, _("( 100.0%% ) ") );
+						*/
+						lastpos = 0;
+						progressUpdate(starttime, (int)(( ( i-start+1 )*DVD_VIDEO_LB_LEN )), (int)(tmp_file_size+2048), TRUE);
+						start=i;
+						fprintf( stderr, _("\n") );
+						if(!stdout_flag) {
+							if(fdatasync(streamout) < 0) {
+								fprintf( stderr, _("\n[Error] error writing to %s \n"), output_file );
+								fprintf( stderr, _("[Error] error: %s\n"), strerror( errno ) );
+								exit(1);
+							}
+
+							close( streamout );
+							re_name( output_file );
+						}
 					}
 				}
-			}
 
-			ifoClose(vmg_file);
-			DVDCloseFile(dvd_file);
-			DVDClose(dvd);
-			if (overall_skipped_blocks > 0)
-				fprintf( stderr, _("[Info] %d blocks had to be skipped, be warned.\n"), overall_skipped_blocks );
-			exit(0);
+				ifoClose(vmg_file);
+				DVDCloseFile(dvd_file);
+				DVDClose(dvd);
+				if (overall_skipped_blocks > 0)
+					fprintf( stderr, _("[Info] %d blocks had to be skipped, be warned.\n"), overall_skipped_blocks );
+				exit(0);
 		} else {
 			fprintf(stderr, _("[Error] Not enough free space on the destination dir. Please choose another one or -f\n") );
 			fprintf(stderr, _("[Error] or dirs behind -1, -2 ... are NOT allowed with -m!\n") );
 			exit(1);
 		}
 	}
-	/*end of mirror block*/
+		/*end of mirror block*/
 
 
 	/*
@@ -2061,7 +2060,7 @@ char *safestrncpy(char *dest, const char *src, size_t n)
 }
 
 #if defined(__APPLE__) && defined(__GNUC__) || defined(OpenBSD)
-int fdatasync( int value )
+int fdatasync(int value)
 {
 	return 0;
 }
@@ -2072,7 +2071,7 @@ int fdatasync( int value )
 * Check the time determine whether a new progress line should be output (once per second)
 */
 
-int check_progress()
+int check_progress(void)
 {
 	static int progress_time = 0;
 
@@ -2083,3 +2082,6 @@ int check_progress()
 
 	return 0;
 }
+
+
+
