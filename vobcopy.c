@@ -903,9 +903,13 @@ int main(int argc, char *argv[])
 					if (open(output_file, O_RDONLY) >= 0) {
 						bool bSkip = FALSE;
 
-						if (overwrite_all_flag == FALSE)
+						if (!overwrite_all_flag)
 							printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [s]kip or [q]uit? ",
 							       output_file);
+						switch (get_option(
+								"\n[Hint] Please choose [o]verwrite, [x]overwrite all, [s]kip, or [q]uit the next time ;-)\n")) {
+							
+						}
 						/*TODO: add [a]ppend  and seek thought stream till point of append is there */
 						while (1) {
 							/* process a single character from stdin, ignore EOF bytes & newlines */
@@ -929,8 +933,7 @@ int main(int argc, char *argv[])
 									overwrite_all_flag = TRUE;
 								break;
 							} else if (op == 'q') {
-								DVDCloseFile
-								    (dvd_file);
+								DVDCloseFile(dvd_file);
 								DVDClose(dvd);
 								exit(1);
 							} else if (op == 's') {

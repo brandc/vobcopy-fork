@@ -40,7 +40,23 @@ void strrepl(char *str, char orig, char new) {
 	}
 }
 
+/*This was implemented three different times in the main function*/
+/* options_str: Informs the user of options to take
+ * opts:        Valid replies (For function use only)
+ */
+char get_option(const char *options_str, const char *opts)
+{
+	int c;
 
+	while (c = fgetc(stdin)) {
+		if (c == '\n' || c == EOF)
+			continue;
+		else if (strchr(opts, c))
+			return c;
+		else
+			printe(options_str);
+	}
+}
 
 #endif /*__UTILS_H*/
 
