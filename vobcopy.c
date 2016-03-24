@@ -57,9 +57,11 @@ char name[300];
 struct stat buf;
 off_t disk_vob_size = 0;
 int verbosity_level = 0;
-bool overwrite_flag = FALSE;
-bool overwrite_all_flag = FALSE;
+bool overwrite_flag = false;
+bool overwrite_all_flag = false;
 int overall_skipped_blocks = 0;
+
+int get_longest_title(dvd_reader_t *dvd);
 
 /* --------------------------------------------------------------------------*/
 /* MAIN */
@@ -87,14 +89,14 @@ int main(int argc, char *argv[])
 	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / 2048 */
 	off_t max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
 	ssize_t file_size_in_blocks = 0;
-	bool mounted = FALSE, provided_output_dir_flag = FALSE;
-	bool verbose_flag = FALSE, provided_input_dir_flag = FALSE;
-	bool force_flag = FALSE, info_flag = FALSE, cut_flag = FALSE;
-	bool large_file_flag = FALSE, titleid_flag = FALSE;
-	bool mirror_flag = FALSE, provided_dvd_name_flag = FALSE;
-	bool stdout_flag = FALSE;
-	bool fast_switch = FALSE, onefile_flag = FALSE;
-	bool quiet_flag = FALSE, longest_title_flag = FALSE;
+	bool mounted = false, provided_output_dir_flag = false;
+	bool verbose_flag = false, provided_input_dir_flag = false;
+	bool force_flag = false, info_flag = false, cut_flag = false;
+	bool large_file_flag = false, titleid_flag = false;
+	bool mirror_flag = false, provided_dvd_name_flag = false;
+	bool stdout_flag = false;
+	bool fast_switch = false, onefile_flag = false;
+	bool quiet_flag = false, longest_title_flag = false;
 
 	dvd_reader_t *dvd = NULL;
 	dvd_file_t *dvd_file = NULL;
@@ -200,7 +202,7 @@ int main(int argc, char *argv[])
 			if (seek_start < 0)
 				seek_start = 0;
 
-			cut_flag = TRUE;
+			cut_flag = true;
 			break;
 
 		case 'c':	/*chapter *//*NOT WORKING!! */
@@ -226,12 +228,12 @@ int main(int argc, char *argv[])
 			if (stop_before_end < 0)
 				stop_before_end = 0;
 
-			cut_flag = TRUE;
+			cut_flag = true;
 			break;
 
 		case 'f':	/*force flag, some options like -o, -1..-4 set this
 				   themselves */
-			force_flag = TRUE;
+			force_flag = true;
 			break;
 
 		case 'h':	/* good 'ol help */
@@ -251,25 +253,25 @@ int main(int argc, char *argv[])
 				printe("[Error] Please don't use -i /dev/something in this version, only the next version will support this again.\n");
 				printe("[Hint] Please use the mount point instead (/cdrom, /dvd, /mnt/dvd or something)\n");
 			}
-			provided_input_dir_flag = TRUE;
+			provided_input_dir_flag = true;
 			break;
 
 #if defined( HAS_LARGEFILE ) || defined( MAC_LARGEFILE )
 		case 'l':	/*large file output */
 			max_filesize_in_blocks = (16*GIGA) / 2048; /*16 GB /2048 (block) */
 			/* 2^63 / 2048 (not exactly) */
-			large_file_flag = TRUE;
+			large_file_flag = true;
 			break;
 #endif
 
 		case 'm':	/*mirrors the dvd to harddrive completly */
-			mirror_flag = TRUE;
-			info_flag = TRUE;
+			mirror_flag = true;
+			info_flag = true;
 			break;
 
 		case 'M':	/*Main track - i.e. the longest track on the dvd */
-			titleid_flag = TRUE;
-			longest_title_flag = TRUE;
+			titleid_flag = true;
+			longest_title_flag = true;
 			break;
 
 		case 'n':	/*title number */
@@ -277,7 +279,7 @@ int main(int argc, char *argv[])
 				die(1, "[Error] The thing behind -n has to be a number! \n");
 
 			sscanf(optarg, "%i", &titleid);
-			titleid_flag = TRUE;
+			titleid_flag = true;
 			break;
 
 		case 'o':	/*output destination */
@@ -287,17 +289,17 @@ int main(int argc, char *argv[])
 			safestrncpy(provided_output_dir, optarg, sizeof(provided_output_dir));
 
 			if (!strcasecmp(provided_output_dir, "stdout") || !strcasecmp(provided_output_dir, "-")) {
-				stdout_flag = TRUE;
-				force_flag = TRUE;
+				stdout_flag = true;
+				force_flag = true;
 			} else {
-				provided_output_dir_flag = TRUE;
+				provided_output_dir_flag = true;
 				alternate_dir_count++;
 			}
-			/*      force_flag = TRUE; */
+			/*      force_flag = true; */
 			break;
 
 		case 'q':	/*quiet flag* - meaning no progress and such output */
-			quiet_flag = TRUE;
+			quiet_flag = true;
 			break;
 
 		case '1':	/*alternate output destination */
@@ -311,9 +313,9 @@ int main(int argc, char *argv[])
 				printe("[Hint] Erm, the number comes behind -n ... \n");
 
 			safestrncpy(alternate_output_dir[options_char - 49], optarg, sizeof(alternate_output_dir[options_char - 49]));
-			provided_output_dir_flag = TRUE;
+			provided_output_dir_flag = true;
 			alternate_dir_count++;
-			force_flag = TRUE;
+			force_flag = true;
 			break;
 
 		case 't':	/*provided title instead of the one from dvd,
@@ -322,17 +324,17 @@ int main(int argc, char *argv[])
 				printf
 				    ("[Hint] The max title-name length is 33, the remainder got discarded");
 			safestrncpy(provided_dvd_name, optarg, sizeof(provided_dvd_name));
-			provided_dvd_name_flag = TRUE;
+			provided_dvd_name_flag = true;
 			if (!strcasecmp(provided_dvd_name, "stdout") || !strcasecmp(provided_dvd_name, "-")) {
-				stdout_flag = TRUE;
-				force_flag = TRUE;
+				stdout_flag = true;
+				force_flag = true;
 			}
 
 			strrepl(provided_dvd_name, ' ', '_');
 			break;
 
 		case 'v':	/*verbosity level, can be called multiple times */
-			verbose_flag = TRUE;
+			verbose_flag = true;
 			verbosity_level++;
 			break;
 
@@ -348,7 +350,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'x':	/*overwrite all existing files without (further) question */
-			overwrite_all_flag = TRUE;
+			overwrite_all_flag = true;
 			break;
 
 		case 'F':	/*Fast-switch */
@@ -360,12 +362,12 @@ int main(int argc, char *argv[])
 				fast_factor = BLOCK_COUNT;
 			}
 
-			fast_switch = TRUE;
+			fast_switch = true;
 			break;
 
 		case 'I':	/*info, doesn't do anything, but simply prints some infos
 				   ( about the dvd ) */
-			info_flag = TRUE;
+			info_flag = true;
 			break;
 
 		case 'L':	/*logfile-path (in case your system crashes every time you
@@ -375,12 +377,12 @@ int main(int argc, char *argv[])
 			strcat(logfile_path, "/");
 			logfile_path[sizeof(logfile_path) - 1] = '\0';
 
-			verbose_flag = TRUE;
+			verbose_flag = true;
 			verbosity_level = 2;
 			break;
 
 		case 'O':	/*only one file will get copied */
-			onefile_flag = TRUE;
+			onefile_flag = true;
 			safestrncpy(onefile, optarg, sizeof(onefile));
 			i = 0;	/*this i here could be bad... */
 			while (onefile[i]) {
@@ -393,7 +395,7 @@ int main(int argc, char *argv[])
 				onefile[i] = ',';
 				onefile[i + 1] = 0;
 			}
-			mirror_flag = TRUE;
+			mirror_flag = true;
 			i = 0;
 			break;
 		case 'V':	/*version number output */
@@ -543,7 +545,7 @@ int main(int argc, char *argv[])
 	 * Check if the provided path is too long
 	 */
 	if (optind < argc) {	/* there is still the path as in vobcopy-0.2.0 */
-		provided_input_dir_flag = TRUE;
+		provided_input_dir_flag = true;
 		if (strlen(argv[optind]) >= 255)
 			/*Seriously? "_Bloody_ path"?*/
 			die(1, "\n[Error] Bloody path to long '%s'\n", argv[optind]);
@@ -559,10 +561,10 @@ int main(int argc, char *argv[])
 			/*exit(1);*/
 		}
 		if (result == 0)
-			mounted = FALSE;
+			mounted = false;
 
 		if (result == 1)
-			mounted = TRUE;
+			mounted = true;
 	} else {/*need to get the path and device ourselves ( oyo = on your own ) */
 		if ((dvd_count = get_device_on_your_own(provided_input_dir, dvd_path)) <= 0) {
 			printe("[Warning] Could not get the device and path! Maybe not mounted the dvd?\n");
@@ -570,9 +572,9 @@ int main(int argc, char *argv[])
 			/* exit( 1 );*/
 		}
 		if (dvd_count > 0)
-			mounted = TRUE;
+			mounted = true;
 		else
-			mounted = FALSE;
+			mounted = false;
 	}
 
 	if (!mounted)
@@ -838,7 +840,7 @@ int main(int argc, char *argv[])
 				while ((op = fgetc(stdin)) == EOF)
 					usleep(1);
 				if (op == 'y') {
-					force_flag = TRUE;
+					force_flag = true;
 					if (verbosity_level >= 1)
 						printe("[Info] y pressed - force write\n");
 					break;
@@ -918,11 +920,11 @@ int main(int argc, char *argv[])
 			}
 
 			if (open(name, O_RDONLY) >= 0) {
-				if (overwrite_all_flag == FALSE)
+				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", name);
 				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
 				while (1) {
-					if (overwrite_all_flag == TRUE)
+					if (overwrite_all_flag == true)
 						op = 'o';
 					else {
 						while ((op = fgetc(stdin)) == EOF)
@@ -938,9 +940,9 @@ int main(int argc, char *argv[])
 							);
 						else
 							close(streamout);
-						overwrite_flag = TRUE;
+						overwrite_flag = true;
 						if (op == 'x')
-							overwrite_all_flag = TRUE;
+							overwrite_all_flag = true;
 						break;
 					} else if (op == 'q') {
 						DVDCloseFile(dvd_file);
@@ -962,10 +964,10 @@ int main(int argc, char *argv[])
 				if (get_free_space(name, verbosity_level) < (2*MEGA))
 					/* it might come here when the platter is full after a -f */
 					die(1, "[Error] Seems your platter is full...\n");
-				if (overwrite_all_flag == FALSE)
+				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [a]ppend, [q]uit? \n", name);
 				while (1) {
-					if (overwrite_all_flag == TRUE)
+					if (overwrite_all_flag == true)
 						op = 'o';
 					else {
 						while ((op = fgetc(stdin)) == EOF)
@@ -982,9 +984,9 @@ int main(int argc, char *argv[])
 #endif
 							die(1, "\n[Error] Error opening file %s\n", name);
 
-						overwrite_flag = TRUE;
+						overwrite_flag = true;
 						if (op == 'x')
-							overwrite_all_flag = TRUE;
+							overwrite_all_flag = true;
 						break;
 					} else if (op == 'a') {
 #if defined( HAS_LARGEFILE )
@@ -1078,7 +1080,7 @@ int main(int argc, char *argv[])
 			progressUpdate(starttime,
 				       (int)offset / BLOCK_SIZE,
 				       (int)(file_size_in_blocks - seek_start - stop_before_end) / BLOCK_SIZE,
-				       FALSE);
+				       false);
 		}
 
 		if (!stdout_flag) {
@@ -1091,7 +1093,7 @@ int main(int argc, char *argv[])
 			progressUpdate(starttime,
 				       (int)offset / BLOCK_SIZE,
 				       (int)(file_size_in_blocks - seek_start - stop_before_end) / BLOCK_SIZE,
-				       TRUE);
+				       true);
 
 			close(streamout);
 
@@ -1397,7 +1399,7 @@ int makedir(char *name)
 			}
 			while (1) {
 				int op;
-				if (overwrite_all_flag == TRUE)
+				if (overwrite_all_flag == true)
 					op = 'c';
 				else {
 					while ((op = fgetc(stdin)) == EOF)
@@ -1408,7 +1410,7 @@ int makedir(char *name)
 
 				if (op == 'c' || op == 'x') {
 					if (op == 'x')
-						overwrite_all_flag = TRUE;
+						overwrite_all_flag = true;
 					return 0;
 				} else if (op == 'q')
 					exit(1);
@@ -1514,6 +1516,10 @@ void shutdown_handler(int signal)
 char *safestrncpy(char *dest, const char *src, size_t n)
 {
 	memset(dest, 0, n);
+
+	if (n <= 1)
+		return NULL;
+
 	return strncpy(dest, src, n - 1);
 }
 

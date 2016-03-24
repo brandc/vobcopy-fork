@@ -152,7 +152,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 				printe("[Info] Writing to %s \n", output_file);
 
 				if (open(output_file, O_RDONLY) >= 0) {
-					bool bSkip = FALSE;
+					bool bSkip = false;
 
 					if (!overwrite_all_flag)
 						printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [s]kip or [q]uit? ", output_file);
@@ -160,7 +160,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 					/*TODO: add [a]ppend  and seek thought stream till point of append is there */
 					while (1) {
 						/* process a single character from stdin, ignore EOF bytes & newlines */
-						if (overwrite_all_flag == TRUE)
+						if (overwrite_all_flag == true)
 							op = 'o';
 						else
 							do {
@@ -175,16 +175,16 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 								);
 							else
 								close(streamout);
-							overwrite_flag = TRUE;
+							overwrite_flag = true;
 							if (op == 'x')
-								overwrite_all_flag = TRUE;
+								overwrite_all_flag = true;
 							break;
 						} else if (op == 'q') {
 							DVDCloseFile(dvd_file);
 							DVDClose(dvd);
 							exit(1);
 						} else if (op == 's') {
-							bSkip = TRUE;
+							bSkip = true;
 							break;
 						} else {
 							printe("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [s]kip, or [q]uit the next time ;-)\n");
@@ -198,11 +198,11 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 				strcat(output_file, ".partial");
 
 				if (open(output_file, O_RDONLY) >= 0) {
-					if (overwrite_all_flag == FALSE)
+					if (overwrite_all_flag == false)
 						printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", output_file);
 					/*TODO: add [a]ppend  and seek thought stream till point of append is there */
 					while (1) {
-						if (overwrite_all_flag == TRUE)
+						if (overwrite_all_flag == true)
 							op = 'o';
 						else {
 							while ((op = fgetc(stdin)) == EOF)
@@ -217,9 +217,9 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 								       "[Error] Error: %s\n",
 								       output_file, 
 								       strerror(errno));
-							overwrite_flag = TRUE;
+							overwrite_flag = true;
 							if (op == 'x')
-								overwrite_all_flag = TRUE;
+								overwrite_all_flag = true;
 							break;
 						} else if (op == 'q') {
 							DVDCloseFile(dvd_file);
@@ -407,7 +407,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 					/*progression bar */
 					/*this here doesn't work with -F 10 */
 					/*                      if( !( ( ( ( i-start )+1 )*DVD_VIDEO_LB_LEN )%( 1024*1024 ) ) ) */
-					progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + 2048), FALSE);
+					progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + 2048), false);
 					/*
 					   if( check_progress() )
 					   {
@@ -428,7 +428,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 							( tmp_file_size+2048 )/( 1024*1024 ) );
 						printe("( 100.0%% ) ") );
 */
-				progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + 2048), TRUE);
+				progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + 2048), true);
 				start = i;
 				printe("\n");
 				if (!stdout_flag) {

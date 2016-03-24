@@ -14,6 +14,7 @@
  *  along with vobcopy; if not,  see <http://www.gnu.org/licenses/>.
  */
 
+#include "utils.c"
 #include "vobcopy.h"
 #include <dvdread/ifo_read.h>
 
@@ -129,7 +130,7 @@ int get_device( char *path, char *device )
 
 	char  *pointer;
 	char  *k;
-	bool  mounted = FALSE;
+	bool  mounted = false;
 
 #ifdef USE_STATFS_FOR_DEV
 	struct statfs buf;
@@ -161,7 +162,7 @@ int get_device( char *path, char *device )
 #endif
 		{
 			if(!strcmp(path, buf.f_mntonname)) {
-				mounted = TRUE;
+				mounted = true;
 #if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
 				strcpy(device, buf.f_mntfromname);
 #else
@@ -208,7 +209,7 @@ int get_device( char *path, char *device )
 				strncpy( device, new_device, sizeof(device)-1 );
 				free( mnt_special );
 				free( new_device );
-				mounted = TRUE;
+				mounted = true;
 				break;
 			}
 		}
@@ -234,7 +235,7 @@ int get_device( char *path, char *device )
 					/* Found the mount point */
 					printe("[Info] Device %s mounted on %s\n", lmount_entry->mnt_fsname, lmount_entry->mnt_dir);
 					strcpy(device, lmount_entry->mnt_fsname);
-					mounted = TRUE;
+					mounted = true;
 					break;
 				}
 			}
@@ -258,7 +259,7 @@ int get_device( char *path, char *device )
 			memset( tmp_bufferin, 0, MAX_STRING * sizeof( char ) );
 			while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin)) {
 				if(strstr(tmp_bufferin, tmp_path))
-					mounted = TRUE;
+					mounted = true;
 				fclose(tmp_streamin);
 			}
 		} else {
@@ -675,7 +676,7 @@ void converttime(playback_time_t *pt, dvd_time_t *dt)
 }
 
 
-int get_longest_title( dvd_reader_t *dvd )
+int get_longest_title(dvd_reader_t *dvd)
 {
 	/*dvd_reader_t *dvd;*/
 	ifo_handle_t *ifo_zero, **ifo; 

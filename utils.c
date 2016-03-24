@@ -21,6 +21,9 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __H_UTILS
+#define __H_UTILS
+
 const long long BLOCK_SIZE = 512LL;
 const long long KILO       = 1024LL;
 const long long MEGA       = (1024LL * 1024LL);
@@ -30,6 +33,7 @@ const long long GIGA       = (1024LL * 1024LL * 1024LL);
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void die(int ret, const char *cause_of_death, ...)
 {
@@ -116,7 +120,7 @@ long long unsigned int suffix2llu(char input)
 
 
 
-
+#endif /*__H_UTILS*/
 
 
 

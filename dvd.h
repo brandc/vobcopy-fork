@@ -6,7 +6,8 @@ int get_device_on_your_own(char *, char *);
 off_t get_vob_size(int , char *); 
 /* int dvdtime2msec(dvd_time_t *); */
 /* void converttime(playback_time_t *, dvd_time_t *); */
-int get_longest_title( dvd_reader_t * );
+/* int get_longest_title( dvd_reader_t * );*/
+
 typedef struct {
 	int hour;
 	int minute;
@@ -84,3 +85,4 @@ struct dvd_info {
 
 	int longest_track;
 };
+

@@ -197,8 +197,8 @@ $LDFLAGS
 
 #Here is implicitly said that for vobcopy to be made *.o has to be made first
 #make is kinda intelligent in that aspect.
-vobcopy: vobcopy.o dvd.o 
-	\$(CC) -o vobcopy vobcopy.o dvd.o \${LDFLAGS}
+vobcopy: vobcopy.o dvd.o mirror.o utils.o
+	\$(CC) -o vobcopy vobcopy.o mirror.o utils.o dvd.o \${LDFLAGS}
 
 disable_lfs:
 	\$(CC) \$(CFLAGS) -c vobcopy.c
@@ -224,7 +224,7 @@ clean :
 	rm -f vobcopy vobcopy.o dvd.o mirror.o utils.o
 
 distclean :
-	rm -f vobcopy.o dvd.o *~
+	rm -f vobcopy.o dvd.o mirror.o utils.o *~
 
 install:
 #	mkdir -p \$(MANDIR)/man1
