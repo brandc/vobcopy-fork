@@ -34,7 +34,7 @@ int get_dvd_name(const char *device, char *title)
 
 	strncpy(title, new_title, sizeof(title)-1);
 
-	/*Remove spaces in lieu of underscores*/
+	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
 	return 0;
@@ -42,15 +42,14 @@ int get_dvd_name(const char *device, char *title)
 #else /* !defined(__sun) */
 int get_dvd_name(const char *device, char *title)
 {
-	int i = 0;
-	int last = 0;
+	int fd;
+	size_t last;
 	int bytes_read;
-	int filehandle = 0;
-	char tmp_buf[2048];
+	char file_buf[2048];
 
 
 	/* open the device */
-	if ( !(filehandle = open(device, O_RDONLY, 0)) ) {
+	if (!(fd = open(device, O_RDONLY, 0))) {
 		/* open failed */
 		printe("[Error] Something went wrong while getting the dvd name  - please specify path as /cdrom or /dvd (mount point) or use -t\n");
 		printe("[Error] Opening of the device failed\n");
@@ -59,9 +58,9 @@ int get_dvd_name(const char *device, char *title)
 	}
 
 	/* seek to title of first track, which is at (track_no * 32768) + 40 */
-	if ( 32768 != lseek( filehandle, 32768, SEEK_SET ) ) {
+	if (32768 != lseek(fd, 32768, SEEK_SET)) {
 		/* seek failed */
-		close( filehandle );
+		close(fd);
 		printe("[Error] Something went wrong while getting the dvd name - please specify path as /cdrom or /dvd (mount point) or use -t\n");
 		printe("[Error] Couldn't seek into the drive\n");
 		printe("[Error] Error: %s\n", strerror(errno));
@@ -69,35 +68,33 @@ int get_dvd_name(const char *device, char *title)
 	}
 
 	/* read title */
-	if ( (bytes_read = read(filehandle, tmp_buf, 2048)) != 2048 ) {
-		close(filehandle);
+	if ((bytes_read = read(fd, file_buf, 2048)) != 2048) {
+		close(fd);
 		printe("[Error] something wrong in dvd_name getting - please specify path as /cdrom or /dvd (mount point) or use -t\n");
 		printe("[Error] only read %d bytes instead of 2048\n", bytes_read);
-		printe("[Error] error: %s\n", strerror(errno));
+		printe("[Error] Error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	strncpy( title, &tmp_buf[40], 32);
+	close(fd);
 
-	/* make sure string is terminated */
-	title[32] = '\0';
+	/*This is where the +40 ended up instead of fseek, for some reason*/
+	safestrncpy(title, file_buf+40, 32);
 
 	/* we don't need trailing spaces
 	 * find the last character that is not ' '
 	 */
-	last = 0; /* and checkski below if it changes*/
-	for (i = 0; i < 32; i++) {
-		if (title[i] != ' ')
-			last = i;
-	}
+	last = strrchr(title, ' ') - title;
 
-	if( 0 == last ) {
+	for (; last && (title == ' '); last--)
+		title[last] = '\0';
+
+	if (!strnlen(title, 32)) {
 		printe("[Hint] The dvd has no name, will choose a nice one ;-), else use -t\n");
 		strcpy( title, "insert_name_here\0" );
-	} else
-		title[ last + 1 ] = '\0';
+	}
 
-	/*Remove spaces in lieu of underscores*/
+	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
 	return 0;
@@ -159,10 +156,11 @@ int get_device( char *path, char *device )
 
 #if ( defined( USE_STATFS_FOR_DEV ) || defined( USE_STATVFS_FOR_DEV ) ) 
 #ifdef USE_STATFS_FOR_DEV
-		if(!statfs(path, &buf)) {
+		if(!statfs(path, &buf))
 #else
-		if(!statvfs(path, &buf)) {
+		if(!statvfs(path, &buf))
 #endif
+		{
 			if( !strcmp( path, buf.f_mntonname ) ) {
 				mounted = TRUE;
 #if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
@@ -275,64 +273,61 @@ int get_device( char *path, char *device )
 	} /*The shear madness of this code spacing is astounding*/
 #else
 
-		/*read the device out of /etc/fstab*/
-		if (tmp_streamin = fopen( "/etc/fstab", "r" )) {
-			strcpy(tmp_path, path);
+	/*read the device out of /etc/fstab*/
+	if (!(tmp_streamin = fopen( "/etc/fstab", "r" ))) {
+		printe("[Error] Could not read /etc/fstab!");
+		printe("[Error] error: %s\n", strerror(errno));
+		device[0] = '\0';
+		return -1;
+	}
 
-			memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+	strcpy(tmp_path, path);
 
-			while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin )) {
-				if ( pointer = strstr( tmp_bufferin, tmp_path)) {
-					if (isgraph((int) * (pointer + strlen(tmp_path))))
-						break; /* there is something behind the path name, 
-							* for instance like it would find /cdrom but 
-							* also /cdrom1 since /cdrom is a subset of /cdrom1
-							*/
-							/* isblank should work too but how do you do that with 
-							 * the "gnu extension"? (man isblank)
-							 */
+	memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 
-					if ((k = strstr(tmp_bufferin, "/dev/")) == NULL ) {
-						printe("[Error] Weird, no /dev/ entry found in the line where iso9660 or udf gets mentioned in /etc/fstab\n");
-						return -1;
-					}
+	while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin )) {
+		if ( pointer = strstr( tmp_bufferin, tmp_path)) {
+			if (isgraph((int) * (pointer + strlen(tmp_path))))
+				break; /* there is something behind the path name, 
+					* for instance like it would find /cdrom but 
+					* also /cdrom1 since /cdrom is a subset of /cdrom1
+					*/
+					/* isblank should work too but how do you do that with 
+					 * the "gnu extension"? (man isblank)
+					 */
 
-					l=0;
-					while (isgraph( (int) *(k) )) {
-							device[l] = *(k);
-							if( device[l] == ',' )
-								break;
-							l++;
-							k++;
-					}
-
-					if(isdigit((int) device[l-1])) {
-						/*Is this supposed to check for hd?*/
-						if(strstr(device, "hd"))
-							printe("[Hint] Hmm, the last char in the device path (%s) that gets mounted to %s is a number.\n",
-							       device,
-							       path);
-					}
-
-					device[l] = '\0';
-				}
-
-				memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
-			}
-
-			fclose( tmp_streamin );
-			if(!strstr( device, "/dev")) {
-				printe("[Error] Could not find the provided path (%s), typo?\n",path);
-				device[0] = '\0';
+			if ((k = strstr(tmp_bufferin, "/dev/")) == NULL ) {
+				printe("[Error] Weird, no /dev/ entry found in the line where iso9660 or udf gets mentioned in /etc/fstab\n");
 				return -1;
 			}
-		} else {
-			printe("[Error] Could not read /etc/fstab!");
-			printe("[Error] error: %s\n", strerror(errno));
-			device[0] = '\0';
-			return -1;
+
+			for (l = 0; isgraph((int) *(k)); k++, l++) {
+					device[l] = *(k);
+					if( device[l] == ',' )
+						break;
+			}
+
+			if(isdigit((int) device[l-1])) {
+				/*Is this supposed to check for hd?*/
+				if(strstr(device, "hd"))
+					printe("[Hint] Hmm, the last char in the device path (%s) that gets mounted to %s is a number.\n",
+					       device,
+					       path);
+			}
+
+			device[l] = '\0';
 		}
+
+		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 	}
+
+	fclose(tmp_streamin);
+	if(!strstr( device, "/dev")) {
+		printe("[Error] Could not find the provided path (%s), typo?\n",path);
+		device[0] = '\0';
+		return -1;
+	}
+
 #endif /*!defined( __sun )*/
 	return mounted;
 }
@@ -687,7 +682,6 @@ int get_longest_title( dvd_reader_t *dvd )
 	pgcit_t *vts_pgcit;
 	vtsi_mat_t *vtsi_mat;
 	vmgi_mat_t *vmgi_mat;
-	video_attr_t *video_attr;
 	pgc_t *pgc;
 	int i, j, titles, vts_ttn, title_set_nr;
 	int max_length = 0, max_track = 0;
@@ -727,7 +721,6 @@ int get_longest_title( dvd_reader_t *dvd )
 		if (ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat) {
 			vtsi_mat   = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
 			vts_pgcit  = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vts_pgcit;
-			video_attr = &vtsi_mat->vts_video_attr;
 			vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
 			vmgi_mat = ifo_zero->vmgi_mat;
 			title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
