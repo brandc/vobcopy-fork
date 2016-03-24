@@ -248,7 +248,7 @@ void strrepl(char *str, char orig, char new);
 long long unsigned int suffix2llu(char input);
 void die(int ret, const char *cause_of_death, ...);
 char get_option(char *options_str, const char *opts);
-
+off_t get_sector_offset(long long unsigned int sector);
 
 /*mirror.c*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,

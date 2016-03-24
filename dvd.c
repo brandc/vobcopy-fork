@@ -14,7 +14,6 @@
  *  along with vobcopy; if not,  see <http://www.gnu.org/licenses/>.
  */
 
-#include "utils.c"
 #include "vobcopy.h"
 #include <dvdread/ifo_read.h>
 
@@ -46,8 +45,8 @@ int get_dvd_name(const char *device, char *title)
 	int fd;
 	size_t last;
 	int bytes_read;
-	char file_buf[2048];
-
+	off_t sector_offset;
+	char file_buf[DVD_SECTOR_SIZE];
 
 	/* open the device */
 	if (!(fd = open(device, O_RDONLY, 0))) {
@@ -59,7 +58,8 @@ int get_dvd_name(const char *device, char *title)
 	}
 
 	/* seek to title of first track, which is at (track_no * 32768) + 40 */
-	if (32768 != lseek(fd, 32768, SEEK_SET)) {
+	sector_offset = get_sector_offset(16);
+	if (sector_offset != lseek(fd, sector_offset, SEEK_SET)) {
 		/* seek failed */
 		close(fd);
 		printe("[Error] Something went wrong while getting the dvd name - please specify path as /cdrom or /dvd (mount point) or use -t\n");
@@ -69,22 +69,26 @@ int get_dvd_name(const char *device, char *title)
 	}
 
 	/* read title */
-	if ((bytes_read = read(fd, file_buf, 2048)) != 2048) {
+	if ((bytes_read = read(fd, file_buf, DVD_SECTOR_SIZE)) != DVD_SECTOR_SIZE) {
 		close(fd);
 		printe("[Error] something wrong in dvd_name getting - please specify path as /cdrom or /dvd (mount point) or use -t\n");
 		printe("[Error] only read %d bytes instead of 2048\n", bytes_read);
 		printe("[Error] Error: %s\n", strerror(errno));
 		return -1;
 	}
+	/*The fd is no longer needed*/
+	close(fd);
 
-	/*This is where the +40 ended up instead of lseek, for some reason*/
+	/*+40 must be the title offset*/
 	safestrncpy(title, file_buf+40, 32);
+	/*I wonder what the magic 32 means*/
 
 	/* we don't need trailing spaces
 	 * find the last character that is not ' '
 	 */
 	last = strrchr(title, ' ') - title;
 
+	/*removes trailing spaces*/
 	for (;last && (title[last] == ' '); last--)
 		title[last] = '\0';
 
@@ -96,7 +100,6 @@ int get_dvd_name(const char *device, char *title)
 	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
-	close(fd);
 	return 0;
 }
 #endif /* !defined(__sun) */

@@ -52,9 +52,8 @@
 
 extern int errno;
 
-int starttime;
 char name[300];
-struct stat buf;
+time_t starttime;
 off_t disk_vob_size = 0;
 int verbosity_level = 0;
 bool overwrite_flag = false;
@@ -69,6 +68,8 @@ int get_longest_title(dvd_reader_t *dvd);
 
 int main(int argc, char *argv[])
 {
+	struct stat fileinfo;
+
 	int streamout, block_count, blocks, file_block_count;
 	int op;
 	char dvd_path[255], logfile_name[20], logfile_path[280] = "\0";	/* TODO: fill logfile_path with all zeros so that
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
 	long long unsigned int seek_start = 0, stop_before_end = 0, temp_var;
 	off_t pwd_free, vob_size = 0;
 	off_t offset = 0, free_space = 0;
-	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / 2048 */
+	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
 	off_t max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
 	ssize_t file_size_in_blocks = 0;
 	bool mounted = false, provided_output_dir_flag = false;
@@ -103,9 +104,9 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind, optopt;
 
-	/**
-	 *this is taken from play_title.c
-	 */
+	/*########################################################################
+	 * The new part taken from play-title.c
+	 *########################################################################*/
 	int titleid = 2, chapid = 0;
 	int angle = 0, sum_chapters = 0;
 	int sum_angles = 0, most_chapters = 0;
@@ -198,7 +199,7 @@ int main(int argc, char *argv[])
 
 			temp_var *= suffix2llu(*size_suffix);
 
-			seek_start = abs(temp_var / (2*KILO));
+			seek_start = abs(temp_var / DVD_SECTOR_SIZE);
 			if (seek_start < 0)
 				seek_start = 0;
 
@@ -224,7 +225,7 @@ int main(int argc, char *argv[])
 
 			temp_var *= suffix2llu(*size_suffix);
 
-			stop_before_end = abs(temp_var / (2*KILO));
+			stop_before_end = abs(temp_var / DVD_SECTOR_SIZE);
 			if (stop_before_end < 0)
 				stop_before_end = 0;
 
@@ -258,8 +259,8 @@ int main(int argc, char *argv[])
 
 #if defined( HAS_LARGEFILE ) || defined( MAC_LARGEFILE )
 		case 'l':	/*large file output */
-			max_filesize_in_blocks = (16*GIGA) / 2048; /*16 GB /2048 (block) */
-			/* 2^63 / 2048 (not exactly) */
+			max_filesize_in_blocks = (16*GIGA) / DVD_SECTOR_SIZE; /*16 GB /DVD_SECTOR_SIZE (block) */
+			/* 2^63 / DVD_SECTOR_SIZE (not exactly) */
 			large_file_flag = true;
 			break;
 #endif
@@ -604,7 +605,9 @@ int main(int argc, char *argv[])
 		get_dvd_name_return = get_dvd_name(dvd_path, dvd_name);
 	printe("[Info] Name of the dvd: %s\n", dvd_name);
 
-	/* The new part taken from play-title.c */
+	/*########################################################################
+	 * The new part taken from play-title.c
+	 *######################################################################## */
 
 	/**
 	 * Load the video manager to find out the information about the titles on
@@ -698,7 +701,7 @@ int main(int argc, char *argv[])
 	 * get the whole vob size via stat( ) manually
 	 */
 	if (mounted && !mirror_flag) {
-		vob_size = (get_vob_size(titleid, provided_input_dir)) - (seek_start * (2*KILO)) - (stop_before_end * (2*KILO));
+		vob_size = (get_vob_size(titleid, provided_input_dir)) - (seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE);
 
 		if (vob_size == 0 || vob_size > (9*GIGA)) {
 			printe("\n[Error] Something went wrong during the size detection of the");
@@ -790,10 +793,10 @@ int main(int argc, char *argv[])
 
 	file_size_in_blocks = DVDFileSize(dvd_file);
 
-	if (vob_size == (-(seek_start * (2*KILO)) - (stop_before_end * (2*KILO)))) {
+	if (vob_size == (-(seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE))) {
 		vob_size =
 		           ((off_t) (file_size_in_blocks) * (off_t) DVD_VIDEO_LB_LEN) -
-			   (seek_start * (2*KILO)) - (stop_before_end * (2*KILO));
+			   (seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE);
 		if (verbosity_level >= 1)
 			printe("[Info] Vob_size was 0\n");
 	}
@@ -904,13 +907,13 @@ int main(int argc, char *argv[])
 			/*here the output size gets adjusted to the given free space */
 
 			if (!large_file_flag && force_flag && free_space < (2*GIGA)) {
-				max_filesize_in_blocks = ((free_space - (2*MEGA)) / (2*KILO));
+				max_filesize_in_blocks = ((free_space - (2*MEGA)) / DVD_SECTOR_SIZE);
 				if (verbosity_level > 1)
 					printe("[Info] Taken max_filesize_in_blocks(2GB version): %.0f\n",
 						(float)max_filesize_in_blocks);
 				paths_taken++;
 			} else if (large_file_flag && force_flag) {	/*lfs version */
-				max_filesize_in_blocks = ((free_space - (2*MEGA)) / (2*KILO));
+				max_filesize_in_blocks = ((free_space - (2*MEGA)) / DVD_SECTOR_SIZE);
 				if (verbosity_level > 1)
 					printe("[Info] Taken max_filesize_in_blocks(lfs version): %.0f\n",
 						(float)max_filesize_in_blocks);
@@ -1103,8 +1106,8 @@ int main(int argc, char *argv[])
 				printe("[Info] file_size_in_blocks %8.0f \n",    (float)file_size_in_blocks);
 			}
 			/* now lets see whats the size of this file in bytes */
-			stat(name, &buf);
-			disk_vob_size += (off_t) buf.st_size;
+			stat(name, &fileinfo);
+			disk_vob_size += (off_t)fileinfo.st_size;
 
 			if (large_file_flag && !cut_flag) {
 				if ((vob_size - disk_vob_size) < MAX_DIFFER)
@@ -1112,7 +1115,7 @@ int main(int argc, char *argv[])
 				else {
 					printe("\n[Error] File size (%.0f) of %s differs largely from that on dvd,"
 					       " therefore keeps it's .partial\n",
-					       (float)buf.st_size,
+					       (float)fileinfo.st_size,
 					       name);
 				}
 			} else if (!cut_flag)
@@ -1121,7 +1124,7 @@ int main(int argc, char *argv[])
 				re_name(name);
 
 			if (verbosity_level >= 1) {
-				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, (float)buf.st_size);
+				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, (float)fileinfo.st_size);
 				printe("[Info] Cumulated size %.0f\n", (float)disk_vob_size);
 			}
 		}

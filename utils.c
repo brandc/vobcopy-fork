@@ -24,10 +24,12 @@
 #ifndef __H_UTILS
 #define __H_UTILS
 
-const long long BLOCK_SIZE = 512LL;
-const long long KILO       = 1024LL;
-const long long MEGA       = (1024LL * 1024LL);
-const long long GIGA       = (1024LL * 1024LL * 1024LL);
+const long long BLOCK_SIZE      = 512LL;
+const long long DVD_SECTOR_SIZE = 2048LL;
+
+const long long KILO = 1024LL;
+const long long MEGA = (1024LL * 1024LL);
+const long long GIGA = (1024LL * 1024LL * 1024LL);
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -59,8 +61,15 @@ void printe(char *str, ...)
 	return;
 }
 
+/*A lot of magic numbers involve sectors*/
+off_t get_sector_offset(long long unsigned int sector)
+{
+	return (off_t)sector * SECTOR_SIZE;
+}
+
 /*Replace character orig with new in str*/
-void strrepl(char *str, char orig, char new) {
+void strrepl(char *str, char orig, char new)
+{
 	/* B. Watson, aka Urchlay on freenode
 	 * wrote this entire function
 	 */
