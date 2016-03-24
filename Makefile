@@ -12,7 +12,7 @@ BINDIR = ${PREFIX}/bin
 MANDIR = ${PREFIX}/man
 DOCDIR = ${PREFIX}/share/doc/vobcopy
 LFS    = -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
-CFLAGS += -I/usr//include
+CFLAGS += -I/usr//include -Wall
 LDFLAGS += -ldvdread -L/usr//lib64
 
 #This specifies the conversion from .c to .o 
@@ -22,11 +22,11 @@ LDFLAGS += -ldvdread -L/usr//lib64
 #Here is implicitly said that for vobcopy to be made *.o has to be made first
 #make is kinda intelligent in that aspect.
 vobcopy: vobcopy.o dvd.o 
-	$(CC) -o vobcopy vobcopy.o dvd.o ${LDFLAGS}
+	$(CC) -o vobcopy vobcopy.o dvd.o ${LDFLAGS} -Wall -Wpedantic
 
 disable_lfs:
-	$(CC) $(CFLAGS) -c vobcopy.c
-	$(CC) $(CFLAGS) -c dvd.c
+	$(CC) $(CFLAGS) -c vobcopy.c -Wall -Wpedantic
+	$(CC) $(CFLAGS) -c dvd.c -Wall -Wpedantic
 	$(CC) -o vobcopy vobcopy.o dvd.o -ldvdread
 
 debug:

@@ -1,3 +1,26 @@
+/* vobcopy 1.2.0
+ *
+ * Copyright (c) 2001 - 2009 robos@muon.de
+ * Lots of contribution and cleanup from rosenauer@users.sourceforge.net
+ * Critical bug-fix from Bas van den Heuvel
+ * Takeshi HIYAMA made lots of changes to get it to run on FreeBSD
+ * Erik Hovland made changes for solaris
+ *  This file is part of vobcopy.
+ *
+ *  vobcopy is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  vobcopy is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
+ */
+
 #define VERSION "1.2.0"
 
 #if defined( __gettext__ )

@@ -86,7 +86,7 @@ int get_dvd_name(const char *device, char *title)
 	 */
 	last = strrchr(title, ' ') - title;
 
-	for (; last && (title == ' '); last--)
+	for (; last && (title[last] == ' '); last--)
 		title[last] = '\0';
 
 	if (!strnlen(title, 32)) {
@@ -249,7 +249,7 @@ int get_device( char *path, char *device )
 #endif
 
 
-		if(tmp_streamin = fopen("/etc/mtab", "r")) {
+		if (tmp_streamin = fopen("/etc/mtab", "r")) {
 			strcpy( tmp_path, path );
 			strcat( tmp_path, " " ); /* otherwise it would detect that e.g. 
 						  * /cdrom is mounted even if only/cdrom1 is 
@@ -327,6 +327,7 @@ int get_device( char *path, char *device )
 		device[0] = '\0';
 		return -1;
 	}
+}
 
 #endif /*!defined( __sun )*/
 	return mounted;
