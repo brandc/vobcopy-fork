@@ -76,9 +76,7 @@ int get_dvd_name(const char *device, char *title)
 		return -1;
 	}
 
-	close(fd);
-
-	/*This is where the +40 ended up instead of fseek, for some reason*/
+	/*This is where the +40 ended up instead of lseek, for some reason*/
 	safestrncpy(title, file_buf+40, 32);
 
 	/* we don't need trailing spaces
@@ -86,7 +84,7 @@ int get_dvd_name(const char *device, char *title)
 	 */
 	last = strrchr(title, ' ') - title;
 
-	for (; last && (title[last] == ' '); last--)
+	for (;last && (title[last] == ' '); last--)
 		title[last] = '\0';
 
 	if (!strnlen(title, 32)) {
@@ -97,6 +95,7 @@ int get_dvd_name(const char *device, char *title)
 	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
+	close(fd);
 	return 0;
 }
 #endif /* !defined(__sun) */
@@ -161,7 +160,7 @@ int get_device( char *path, char *device )
 		if(!statvfs(path, &buf))
 #endif
 		{
-			if( !strcmp( path, buf.f_mntonname ) ) {
+			if(!strcmp(path, buf.f_mntonname)) {
 				mounted = TRUE;
 #if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
 				strcpy(device, buf.f_mntfromname);

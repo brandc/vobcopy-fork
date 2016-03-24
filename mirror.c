@@ -1,8 +1,31 @@
+/* vobcopy 1.2.0
+ *
+ * Copyright (c) 2001 - 2009 robos@muon.de
+ * Lots of contribution and cleanup from rosenauer@users.sourceforge.net
+ * Critical bug-fix from Bas van den Heuvel
+ * Takeshi HIYAMA made lots of changes to get it to run on FreeBSD
+ * Erik Hovland made changes for solaris
+ *  This file is part of vobcopy.
+ *
+ *  vobcopy is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  vobcopy is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*=========================================================================*/
 /*-----------------------What exactly does this do?------------------------*/
 /*=========================================================================*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
-	    off_t disk_vob_size, bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
+	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
 	    dvd_reader_t *dvd, dvd_file_t *dvd_file, unsigned char *bufferin, int block_count, ifo_handle_t *vmg_file)
 {
 	DIR *dir;

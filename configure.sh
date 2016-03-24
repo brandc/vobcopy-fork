@@ -203,12 +203,16 @@ vobcopy: vobcopy.o dvd.o
 disable_lfs:
 	\$(CC) \$(CFLAGS) -c vobcopy.c
 	\$(CC) \$(CFLAGS) -c dvd.c
-	\$(CC) -o vobcopy vobcopy.o dvd.o -ldvdread
+	\$(CC) \$(CFLAGS) -c mirror.c
+	\$(CC) \$(CFLAGS) -c utils.c
+	\$(CC) -o vobcopy vobcopy.o dvd.o mirror.o utils.o -ldvdread
 
 debug:
 	\$(CC) -c vobcopy.c -Wall -ggdb -pedantic \$(CFLAGS) \$(LFS)
 	\$(CC) -c dvd.c     -Wall -ggdb -pedantic \$(CFLAGS) \$(LFS)
-	\$(CC) -o vobcopy vobcopy.o dvd.o -ldvdread
+	\$(CC) -c mirror.c  -Wall -ggdb -pedantic \$(CFLAGS) \$(LFS)
+	\$(CC) -c utils.c   -Wall -ggdb -pedantic \$(CFLAGS) \$(LFS)
+	\$(CC) -o vobcopy vobcopy.o mirror.o utils.o dvd.o -ldvdread
 
 deb:
         
@@ -217,7 +221,7 @@ deb:
 		
 
 clean :
-	rm -f vobcopy vobcopy.o dvd.o
+	rm -f vobcopy vobcopy.o dvd.o mirror.o utils.o
 
 distclean :
 	rm -f vobcopy.o dvd.o *~

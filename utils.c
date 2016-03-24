@@ -21,9 +21,6 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __UTILS_H
-#define __UTILS_H
-
 const long long BLOCK_SIZE = 512LL;
 const long long KILO       = 1024LL;
 const long long MEGA       = (1024LL * 1024LL);
@@ -117,7 +114,6 @@ long long unsigned int suffix2llu(char input)
 	return 0;
 }
 
-#endif /*__UTILS_H*/
 
 
 

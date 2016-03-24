@@ -55,13 +55,11 @@ extern int errno;
 int starttime;
 char name[300];
 struct stat buf;
+off_t disk_vob_size = 0;
 int verbosity_level = 0;
 bool overwrite_flag = FALSE;
 bool overwrite_all_flag = FALSE;
 int overall_skipped_blocks = 0;
-
-#include "utils.c"
-#include "mirror.c"
 
 /* --------------------------------------------------------------------------*/
 /* MAIN */
@@ -84,7 +82,7 @@ int main(int argc, char *argv[])
 	int dvd_count = 0, paths_taken = 0, fast_factor = 1;
 	int watchdog_minutes = 0;
 	long long unsigned int seek_start = 0, stop_before_end = 0, temp_var;
-	off_t pwd_free, vob_size = 0, disk_vob_size = 0;
+	off_t pwd_free, vob_size = 0;
 	off_t offset = 0, free_space = 0;
 	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / 2048 */
 	off_t max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
@@ -738,7 +736,7 @@ int main(int argc, char *argv[])
 
 	if (mirror_flag) {
 		mirror(dvd_name, provided_dvd_name_flag, provided_dvd_name,
-		       pwd, pwd_free, onefile_flag, disk_vob_size, force_flag,
+		       pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
 		       dvd, dvd_file, bufferin, block_count, vmg_file);
 	}
