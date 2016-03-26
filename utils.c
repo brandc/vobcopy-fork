@@ -21,8 +21,13 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __H_UTILS
-#define __H_UTILS
+#include <sys/types.h>
+
+#if defined(HAS_LARGEFILE) || defined (MAC_LARGEFILE)
+const int O_DETECTED_FLAG = O_LARGEFILE;
+#else
+const int O_DETECTED_FLAG = 0;
+#endif
 
 const long long BLOCK_SIZE      = 512LL;
 const long long DVD_SECTOR_SIZE = 2048LL;
@@ -31,6 +36,9 @@ const long long KILO = 1024LL;
 const long long MEGA = (1024LL * 1024LL);
 const long long GIGA = (1024LL * 1024LL * 1024LL);
 
+const size_t MAX_PATH_LEN = 255;
+
+/*Confident this breaks some preprocessor magic*/
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -64,21 +72,34 @@ void printe(char *str, ...)
 /*A lot of magic numbers involve sectors*/
 off_t get_sector_offset(long long unsigned int sector)
 {
-	return (off_t)sector * SECTOR_SIZE;
+	/*Not sure if this is subject to integer overflow*/
+	return (off_t)(sector * DVD_SECTOR_SIZE);
 }
 
-/*Replace character orig with new in str*/
+void *palloc(size_t element, size_t elements)
+{
+	void *ret;
+
+	ret = calloc(element, elements);
+	if (!ret)
+		die(1, "[Error] Failed to allocate memory!\n");
+
+	return ret;
+}
+
+/*Replace characters in str, that are orig, with new*/
 void strrepl(char *str, char orig, char new)
 {
 	/* B. Watson, aka Urchlay on freenode
-	 * wrote this entire function
+	 * wrote this function
 	 */
 	while (*str) {
-		if (*str == orig)
-			*str = new;
+		if ((*str) == orig)
+			(*str) = new;
 		str++;
 	}
 }
+
 
 /*This was implemented five different times in a few functions*/
 /* options_str: Informs the user of options to take
@@ -96,10 +117,24 @@ char get_option(char *options_str, const char *opts)
 		else
 			printe(options_str);
 
+		/*Sleeps for one second each iteration*/
 		sleep(1);
 	}
 
 	return c;
+}
+
+
+
+/*Zero's string, and then copies the source*/
+char *safestrncpy(char *dest, const char *src, size_t n)
+{
+	memset(dest, 0, n);
+
+	if (n <= 1)
+		return dest;
+
+	return strncpy(dest, src, n-1);
 }
 
 /*Found this copied and pasted twice in the code*/
@@ -129,7 +164,9 @@ long long unsigned int suffix2llu(char input)
 
 
 
-#endif /*__H_UTILS*/
+
+
+
 
 
 

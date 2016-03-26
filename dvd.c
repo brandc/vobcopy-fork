@@ -232,8 +232,8 @@ int get_device( char *path, char *device )
  */
 
 #if (defined(__linux__)) 
-		if (tmp_streamin = setmntent("/etc/mtab", "r")) {
-			while (lmount_entry = getmntent(tmp_streamin)) {
+		if ((tmp_streamin = setmntent("/etc/mtab", "r"))) {
+			while ((lmount_entry = getmntent(tmp_streamin))) {
 				if (strcmp(lmount_entry->mnt_dir, path) == 0){
 					/* Found the mount point */
 					printe("[Info] Device %s mounted on %s\n", lmount_entry->mnt_fsname, lmount_entry->mnt_dir);
@@ -252,23 +252,23 @@ int get_device( char *path, char *device )
 #endif
 
 
-		if (tmp_streamin = fopen("/etc/mtab", "r")) {
-			strcpy( tmp_path, path );
-			strcat( tmp_path, " " ); /* otherwise it would detect that e.g. 
-						  * /cdrom is mounted even if only/cdrom1 is 
-						  * mounted
-						  */
-
-			memset( tmp_bufferin, 0, MAX_STRING * sizeof( char ) );
-			while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin)) {
-				if(strstr(tmp_bufferin, tmp_path))
-					mounted = true;
-				fclose(tmp_streamin);
-			}
-		} else {
+		if ((tmp_streamin = fopen("/etc/mtab", "r"))) {
 			printe("[Error] Could not read /etc/mtab!\n");
 			printe("[Error] error: %s\n", strerror(errno));
 			return -1;
+		}
+
+		strcpy( tmp_path, path );
+		strcat( tmp_path, " " ); /* otherwise it would detect that e.g. 
+					  * /cdrom is mounted even if only/cdrom1 is 
+					  * mounted
+					  */
+
+		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin)) {
+			if(strstr(tmp_bufferin, tmp_path))
+				mounted = true;
+			fclose(tmp_streamin);
 		}
 #endif
 
@@ -276,61 +276,61 @@ int get_device( char *path, char *device )
 	} /*The shear madness of this code spacing is astounding*/
 #else
 
-	/*read the device out of /etc/fstab*/
-	if (!(tmp_streamin = fopen( "/etc/fstab", "r" ))) {
-		printe("[Error] Could not read /etc/fstab!");
-		printe("[Error] error: %s\n", strerror(errno));
-		device[0] = '\0';
-		return -1;
-	}
+		/*read the device out of /etc/fstab*/
+		if (!(tmp_streamin = fopen( "/etc/fstab", "r" ))) {
+			printe("[Error] Could not read /etc/fstab!");
+			printe("[Error] error: %s\n", strerror(errno));
+			device[0] = '\0';
+			return -1;
+		}
 
-	strcpy(tmp_path, path);
+		strcpy(tmp_path, path);
 
-	memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 
-	while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin )) {
-		if ( pointer = strstr( tmp_bufferin, tmp_path)) {
-			if (isgraph((int) * (pointer + strlen(tmp_path))))
-				break; /* there is something behind the path name, 
-					* for instance like it would find /cdrom but 
-					* also /cdrom1 since /cdrom is a subset of /cdrom1
-					*/
-					/* isblank should work too but how do you do that with 
-					 * the "gnu extension"? (man isblank)
-					 */
+		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin )) {
+			if ((pointer = strstr( tmp_bufferin, tmp_path))) {
+				if (isgraph((int) * (pointer + strlen(tmp_path))))
+					break; /* there is something behind the path name, 
+						* for instance like it would find /cdrom but 
+						* also /cdrom1 since /cdrom is a subset of /cdrom1
+						*/
+						/* isblank should work too but how do you do that with 
+						* the "gnu extension"? (man isblank)
+						*/
 
-			if ((k = strstr(tmp_bufferin, "/dev/")) == NULL ) {
-				printe("[Error] Weird, no /dev/ entry found in the line where iso9660 or udf gets mentioned in /etc/fstab\n");
-				return -1;
-			}
+				if ((k = strstr(tmp_bufferin, "/dev/")) == NULL ) {
+					printe("[Error] Weird, no /dev/ entry found in the line where iso9660 or udf gets mentioned in /etc/fstab\n");
+					return -1;
+				}
 
-			for (l = 0; isgraph((int) *(k)); k++, l++) {
+				for (l = 0; isgraph((int) *(k)); k++, l++) {
 					device[l] = *(k);
 					if( device[l] == ',' )
 						break;
+				}
+
+				if(isdigit((int) device[l-1])) {
+					/*Is this supposed to check for hd?*/
+					if(strstr(device, "hd"))
+						printe("[Hint] Hmm, the last char in the device path (%s) that gets mounted to %s is a number.\n",
+							device,
+							path);
+				}
+
+				device[l] = '\0';
 			}
 
-			if(isdigit((int) device[l-1])) {
-				/*Is this supposed to check for hd?*/
-				if(strstr(device, "hd"))
-					printe("[Hint] Hmm, the last char in the device path (%s) that gets mounted to %s is a number.\n",
-					       device,
-					       path);
-			}
-
-			device[l] = '\0';
+			memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 		}
 
-		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+		fclose(tmp_streamin);
+		if(!strstr( device, "/dev")) {
+			printe("[Error] Could not find the provided path (%s), typo?\n",path);
+			device[0] = '\0';
+			return -1;
+		}
 	}
-
-	fclose(tmp_streamin);
-	if(!strstr( device, "/dev")) {
-		printe("[Error] Could not find the provided path (%s), typo?\n",path);
-		device[0] = '\0';
-		return -1;
-	}
-}
 
 #endif /*!defined( __sun )*/
 	return mounted;
@@ -438,7 +438,7 @@ int get_device_on_your_own( char *path, char *device )
 	char *k;
 	/* read the device out of /etc/mtab */
 
-	if (tmp_streamin = fopen("/etc/mtab", "r")) {
+	if ((tmp_streamin = fopen("/etc/mtab", "r"))) {
 		/* strcpy(tmp_path, "iso9660"); */
 		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
 		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin))  {

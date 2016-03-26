@@ -52,7 +52,7 @@
 
 extern int errno;
 
-char name[300];
+char *name;
 time_t starttime;
 off_t disk_vob_size = 0;
 int verbosity_level = 0;
@@ -72,19 +72,19 @@ int main(int argc, char *argv[])
 
 	int streamout, block_count, blocks, file_block_count;
 	int op;
-	char dvd_path[255], logfile_name[20], logfile_path[280] = "\0";	/* TODO: fill logfile_path with all zeros so that
-									   " if strncpy() finds the source too long IT DOES NOT TERMINATE the sink, so the following strcat() is undefined 
-									   and potentially fatal."  - Thanks Leigh! */
-	char dvd_name[35], vobcopy_call[255], provided_dvd_name[35];
-	char *size_suffix;
-	char pwd[255], provided_output_dir[255], provided_input_dir[255];
-	char alternate_output_dir[4][255], onefile[255];
-	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
+
+	unsigned char *bufferin;
+	char *dvd_path, *logfile_path, *size_suffix, *pwd, *onefile;
+	char *provided_output_dir, *provided_input_dir, *vobcopy_call;
+
+	char logfile_name[20];
+	char dvd_name[35], provided_dvd_name[35];
+	char **alternate_output_dir;
 	int i = 0, j = 0, argc_i = 0, alternate_dir_count = 0;
 	int partcount = 0, get_dvd_name_return, options_char = 0;
 	int dvd_count = 0, paths_taken = 0, fast_factor = 1;
 	int watchdog_minutes = 0;
-	long long unsigned int seek_start = 0, stop_before_end = 0, temp_var;
+	long long unsigned int start_sector = 0, end_sector = 0, temp_var;
 	off_t pwd_free, vob_size = 0;
 	off_t offset = 0, free_space = 0;
 	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
@@ -103,6 +103,22 @@ int main(int argc, char *argv[])
 	dvd_file_t *dvd_file = NULL;
 	extern char *optarg;
 	extern int optind, optopt;
+
+	pwd                 = palloc(sizeof(char), MAX_PATH_LEN);
+	name                = palloc(sizeof(char), MAX_PATH_LEN);
+	onefile             = palloc(sizeof(char), MAX_PATH_LEN);
+	dvd_path            = palloc(sizeof(char), MAX_PATH_LEN);
+	vobcopy_call        = palloc(sizeof(char), MAX_PATH_LEN);
+	provided_output_dir = palloc(sizeof(char), MAX_PATH_LEN);
+	provided_input_dir  = palloc(sizeof(char), MAX_PATH_LEN);
+	logfile_path        = palloc(sizeof(char), MAX_PATH_LEN);
+
+	bufferin            = palloc(sizeof(unsigned char), (DVD_VIDEO_LB_LEN * BLOCK_COUNT));
+
+	alternate_output_dir = palloc(sizeof(char*), MAX_PATH_LEN);
+	for (i = 0; i < 4; i++)
+		alternate_output_dir[i] = palloc(sizeof(char), MAX_PATH_LEN);
+	
 
 	/*########################################################################
 	 * The new part taken from play-title.c
@@ -156,9 +172,6 @@ int main(int argc, char *argv[])
 	bindtextdomain("vobcopy", "/usr/share/locale");
 #endif
 
-	/* initialize string */
-	memset(dvd_path, '\0', sizeof(dvd_path));
-
 	/*
 	 * the getopt part (getting the options from command line)
 	 */
@@ -199,9 +212,9 @@ int main(int argc, char *argv[])
 
 			temp_var *= suffix2llu(*size_suffix);
 
-			seek_start = abs(temp_var / DVD_SECTOR_SIZE);
-			if (seek_start < 0)
-				seek_start = 0;
+			start_sector = abs(temp_var / DVD_SECTOR_SIZE);
+			if (start_sector < 0)
+				start_sector = 0;
 
 			cut_flag = true;
 			break;
@@ -225,9 +238,9 @@ int main(int argc, char *argv[])
 
 			temp_var *= suffix2llu(*size_suffix);
 
-			stop_before_end = abs(temp_var / DVD_SECTOR_SIZE);
-			if (stop_before_end < 0)
-				stop_before_end = 0;
+			end_sector = abs(temp_var / DVD_SECTOR_SIZE);
+			if (end_sector < 0)
+				end_sector = 0;
 
 			cut_flag = true;
 			break;
@@ -249,7 +262,7 @@ int main(int argc, char *argv[])
 			       "This option is only there if vobcopy makes trouble.\n");
 			printe("[Hint] If vobcopy makes trouble, please mail me so that I can fix this (robos@muon.de). Thanks\n");
 
-			safestrncpy(provided_input_dir, optarg, sizeof(provided_input_dir));
+			safestrncpy(provided_input_dir, optarg, MAX_PATH_LEN);
 			if (strstr(provided_input_dir, "/dev")) {
 				printe("[Error] Please don't use -i /dev/something in this version, only the next version will support this again.\n");
 				printe("[Hint] Please use the mount point instead (/cdrom, /dvd, /mnt/dvd or something)\n");
@@ -287,7 +300,7 @@ int main(int argc, char *argv[])
 			if (isdigit((int)*optarg))
 				printe("[Hint] Erm, the number comes behind -n ... \n");
 
-			safestrncpy(provided_output_dir, optarg, sizeof(provided_output_dir));
+			safestrncpy(provided_output_dir, optarg, MAX_PATH_LEN);
 
 			if (!strcasecmp(provided_output_dir, "stdout") || !strcasecmp(provided_output_dir, "-")) {
 				stdout_flag = true;
@@ -324,7 +337,7 @@ int main(int argc, char *argv[])
 			if (strlen(optarg) > 33)
 				printf
 				    ("[Hint] The max title-name length is 33, the remainder got discarded");
-			safestrncpy(provided_dvd_name, optarg, sizeof(provided_dvd_name));
+			safestrncpy(provided_dvd_name, optarg, MAX_PATH_LEN);
 			provided_dvd_name_flag = true;
 			if (!strcasecmp(provided_dvd_name, "stdout") || !strcasecmp(provided_dvd_name, "-")) {
 				stdout_flag = true;
@@ -384,7 +397,7 @@ int main(int argc, char *argv[])
 
 		case 'O':	/*only one file will get copied */
 			onefile_flag = true;
-			safestrncpy(onefile, optarg, sizeof(onefile));
+			safestrncpy(onefile, optarg, MAX_PATH_LEN);
 			i = 0;	/*this i here could be bad... */
 			while (onefile[i]) {
 				onefile[i] = toupper(onefile[i]);
@@ -428,7 +441,7 @@ int main(int argc, char *argv[])
 	if (provided_output_dir_flag) {
 		strcpy(pwd, provided_output_dir);
 	} else {
-		if (getcwd(pwd, 255) == NULL)
+		if (getcwd(pwd, MAX_PATH_LEN) == NULL)
 			die(1,  "\n[Error] Hmm, the path length of your current directory is really large (>255)\n",
 				"[Hint] Change to a path with shorter path length pleeeease ;-)\n");
 	}
@@ -444,7 +457,9 @@ int main(int argc, char *argv[])
 		printe("[Hint] Quiet mode - All messages will now end up in %s\n", tmp_path);
 		if ((temp = open(tmp_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
 			if (errno == EEXIST) {
-				if (!force_flag)
+				if (force_flag)
+					printf("[Warning] Overwriting %s as requested with -f\n", tmp_path);
+				else
 					die(1,
 					    "[Error] Error: %s\n",
 					    "[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here.\n",
@@ -452,8 +467,6 @@ int main(int argc, char *argv[])
 					    strerror(errno),
 					    tmp_path
 					);
-				else
-					printf("[Warning] Overwriting %s as requested with -f\n", tmp_path);
 			} else {
 				printf("[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path);
 				printf("[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n");
@@ -471,6 +484,7 @@ int main(int argc, char *argv[])
 				exit(1);
 		}
 
+		/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
 		/*reopen the already tested file and attach stderr to it */
 		if (freopen(tmp_path, "a", stderr) == NULL) {
 			printf("[Error] Error: %s\n", strerror(errno));
@@ -483,7 +497,7 @@ int main(int argc, char *argv[])
 
 	if (verbosity_level > 1) {	/* this here starts writing the logfile */
 		int temp;
-		printe("[Info] Uhu, super-verbose\n");
+		printe("[Info] High level of verbosity\n");
 
 		if (strlen(logfile_path) < 3)
 			strcpy(logfile_path, pwd);
@@ -491,8 +505,9 @@ int main(int argc, char *argv[])
 		strcat(logfile_name, VERSION);
 		strcat(logfile_name, ".log");
 		strcat(logfile_path, logfile_name);
-		if ((temp =
-		     open(logfile_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
+
+		/*Why is this file created with persissions set then closed and finally permissions are set once more?*/
+		if ((temp = open(logfile_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
 			printf("[Error] Error: %s\n", strerror(errno));
 			if (errno == EEXIST) {
 				printf("\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here. \n",
@@ -521,6 +536,7 @@ int main(int argc, char *argv[])
 		       "these questions end up in the log file so you don't see them...\n");
 		printe("[Hint] If you don't like that position, use -L /path/to/logfile/ instead of -v -v\n");
 
+		/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
 		if (freopen(logfile_path, "a", stderr) == NULL)
 			die(1, "[Error] Error: %s\n"
 			       "[Error] Aaah! Re-direct of stderr to %s didn't work! \n",
@@ -547,10 +563,10 @@ int main(int argc, char *argv[])
 	 */
 	if (optind < argc) {	/* there is still the path as in vobcopy-0.2.0 */
 		provided_input_dir_flag = true;
-		if (strlen(argv[optind]) >= 255)
+		if (strlen(argv[optind]) >= MAX_PATH_LEN)
 			/*Seriously? "_Bloody_ path"?*/
 			die(1, "\n[Error] Bloody path to long '%s'\n", argv[optind]);
-		safestrncpy(provided_input_dir, argv[optind], sizeof(provided_input_dir));
+		safestrncpy(provided_input_dir, argv[optind], MAX_PATH_LEN);
 	}
 
 	if (provided_input_dir_flag) {	/*the path has been given to us */
@@ -580,7 +596,7 @@ int main(int argc, char *argv[])
 
 	if (!mounted)
 		/*see if the path given is a iso file or a VIDEO_TS dir */
-		safestrncpy(dvd_path, provided_input_dir, sizeof(dvd_path));
+		safestrncpy(dvd_path, provided_input_dir, MAX_PATH_LEN);
 
 	/*
 	 * Is the path correct
@@ -600,14 +616,15 @@ int main(int argc, char *argv[])
 	 * this here gets the dvd name
 	 */
 	if (provided_dvd_name_flag)
-		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
+		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
 	else
 		get_dvd_name_return = get_dvd_name(dvd_path, dvd_name);
+
 	printe("[Info] Name of the dvd: %s\n", dvd_name);
 
 	/*########################################################################
 	 * The new part taken from play-title.c
-	 *######################################################################## */
+	 *########################################################################*/
 
 	/**
 	 * Load the video manager to find out the information about the titles on
@@ -694,14 +711,17 @@ int main(int argc, char *argv[])
 			printe("[Info] Title %i has %d angle(s).\n", (i + 1), angles);
 		}
 
-		disk_vob_size = get_used_space(provided_input_dir, verbosity_level);
+		disk_vob_size = get_used_space(provided_input_dir);
 	}
 
 	/*
 	 * get the whole vob size via stat( ) manually
 	 */
-	if (mounted && !mirror_flag) {
-		vob_size = (get_vob_size(titleid, provided_input_dir)) - (seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE);
+	if (mirror_flag) {	/* this gets the size of the whole dvd */
+		add_end_slash(provided_input_dir);
+		disk_vob_size = get_used_space(provided_input_dir);
+	} else if (mounted && !mirror_flag) {
+		vob_size = (get_vob_size(titleid, provided_input_dir)) - get_sector_offset(start_sector) - get_sector_offset(end_sector);
 
 		if (vob_size == 0 || vob_size > (9*GIGA)) {
 			printe("\n[Error] Something went wrong during the size detection of the");
@@ -710,25 +730,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (mirror_flag) {	/* this gets the size of the whole dvd */
-		add_end_slash(provided_input_dir);
-		disk_vob_size = get_used_space(provided_input_dir, verbosity_level);
-		/*vob_size = get_free_space( provided_input_dir,verbosity_level); */
-	}
-
 	/*
 	 * check if on the target directory is enough space free
 	 * see man statfs for more info
 	 */
 
-	pwd_free = get_free_space(pwd, verbosity_level);
+	pwd_free = get_free_space(pwd);
 
 	if (fast_switch)
 		block_count = fast_factor;
 	else
 		block_count = 1;
 
-	install_signal_handlers();
+	set_signal_handlers();
 
 	if (watchdog_minutes) {
 		printe("\n[Info] Setting watchdog timer to %d minutes\n", watchdog_minutes);
@@ -781,8 +795,7 @@ int main(int argc, char *argv[])
 	/**
 	 * We've got enough info, time to open the title set data.
 	 */
-	dvd_file = DVDOpenFile(dvd, tt_srpt->title[titleid - 1].title_set_nr,
-			       DVD_READ_TITLE_VOBS);
+	dvd_file = DVDOpenFile(dvd, tt_srpt->title[titleid - 1].title_set_nr, DVD_READ_TITLE_VOBS);
 	if (!dvd_file) {
 		printe("[Error] Can't open title VOBS (VTS_%02d_1.VOB).\n", tt_srpt->title[titleid - 1].title_set_nr);
 		ifoClose(vts_file);
@@ -793,10 +806,10 @@ int main(int argc, char *argv[])
 
 	file_size_in_blocks = DVDFileSize(dvd_file);
 
-	if (vob_size == (-(seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE))) {
+	if (vob_size == (-get_sector_offset(start_sector) - get_sector_offset(end_sector))) {
 		vob_size =
 		           ((off_t) (file_size_in_blocks) * (off_t) DVD_VIDEO_LB_LEN) -
-			   (seek_start * DVD_SECTOR_SIZE) - (stop_before_end * DVD_SECTOR_SIZE);
+			   get_sector_offset(start_sector) - get_sector_offset(end_sector);
 		if (verbosity_level >= 1)
 			printe("[Info] Vob_size was 0\n");
 	}
@@ -839,21 +852,16 @@ int main(int argc, char *argv[])
 			printe("[Hint] Nevertheless, do you want vobcopy to continue [y] or do you want to check for \n");
 			printe("[Hint] enough space first [q]?\n");
 
-			while (1) {
-				while ((op = fgetc(stdin)) == EOF)
-					usleep(1);
-				if (op == 'y') {
-					force_flag = true;
-					if (verbosity_level >= 1)
-						printe("[Info] y pressed - force write\n");
-					break;
-				} else if (op == 'n' || op == 'q') {
-					if (verbosity_level >= 1)
-						printe("[Info] n/q pressed\n");
-					exit(1);
-					break;
-				} else
-					printe("[Error] Please choose [y] to continue or [n] to quit\n");
+			op = get_option("[Error] Please choose [y] to continue or [n] to quit\n", "ynq");
+
+			if (op == 'y') {
+				force_flag = true;
+				if (verbosity_level >= 1)
+					printe("[Info] y pressed - force write\n");
+			} else if (op == 'n' || op == 'q') {
+				if (verbosity_level >= 1)
+					printe("[Info] n/q pressed\n");
+				exit(1);
 			}
 		}
 
@@ -869,10 +877,10 @@ int main(int argc, char *argv[])
 	/*if the user has given a name for the file */
 	if (provided_dvd_name_flag && !stdout_flag) {
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
+		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
 	}
 
-	while (offset < (file_size_in_blocks - seek_start - stop_before_end)) {
+	while (offset < (file_size_in_blocks - start_sector - end_sector)) {
 		partcount++;
 
 		/*if the stream doesn't get written to stdout */
@@ -880,7 +888,7 @@ int main(int argc, char *argv[])
 			/*part to distribute the files over different directories */
 			if (paths_taken == 0) {
 				add_end_slash(pwd);
-				free_space = get_free_space(pwd, verbosity_level);
+				free_space = get_free_space(pwd);
 
 				if (verbosity_level > 1)
 					printe("[Info] Free space for -o dir: %.0f\n", (float)free_space);
@@ -892,7 +900,7 @@ int main(int argc, char *argv[])
 				for (i = 1; i < alternate_dir_count; i++) {
 					if (paths_taken == i) {
 						add_end_slash(alternate_output_dir[i - 1]);
-						free_space = get_free_space (alternate_output_dir[i - 1], verbosity_level);
+						free_space = get_free_space (alternate_output_dir[i - 1]);
 
 						if (verbosity_level > 1)
 							printe("[Info] Free space for -%i dir: %.0f\n", i, (float)free_space);
@@ -922,101 +930,67 @@ int main(int argc, char *argv[])
 				max_filesize_in_blocks = (2*MEGA); /*if free_space is more than  2 GB fall back to max_filesize_in_blocks=2GB */
 			}
 
-			if (open(name, O_RDONLY) >= 0) {
+			if (close(open(name, O_RDONLY)) >= 0) {
 				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", name);
 				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
-				while (1) {
-					if (overwrite_all_flag == true)
-						op = 'o';
-					else {
-						while ((op = fgetc(stdin)) == EOF)
-							usleep(1);
-						fgetc(stdin);	/* probably need to do this for second time it comes around this loop */
-					}
-					if (op == 'o' || op == 'x') {
-						if ((streamout = open(name, O_WRONLY | O_TRUNC)) < 0)
-							die(1, "\n[Error] Error opening file %s\n"
-							       "[Error] Error: %s\n",
-							       name,
-							       strerror(errno)
-							);
-						else
-							close(streamout);
-						overwrite_flag = true;
-						if (op == 'x')
-							overwrite_all_flag = true;
-						break;
-					} else if (op == 'q') {
-						DVDCloseFile(dvd_file);
-						DVDClose(dvd);
-						exit(1);
-					} else
-						printe("\n[Hint] please choose [o]verwrite, [x]overwrite all or [q]uit the next time ;-)\n");
+
+				if (overwrite_all_flag == true)
+					op = 'o';
+				else
+					op = get_option("\n[Hint] please choose [o]verwrite, [x]overwrite all or [q]uit", "oxq");
+
+				if (op == 'o' || op == 'x') {
+					if ((streamout = open(name, O_WRONLY | O_TRUNC)) < 0)
+						die(1, "\n[Error] Error opening file %s\n"
+						       "[Error] Error: %s\n",
+						       name,
+						       strerror(errno));
+					else
+						close(streamout);
+
+					overwrite_flag = true;
+					if (op == 'x')
+						overwrite_all_flag = true;
+				} else if (op == 'q') {
+					DVDCloseFile(dvd_file);
+					DVDClose(dvd);
+					exit(1);
 				}
 			}
 
 			strcat(name, ".partial");
 
-#if defined( HAS_LARGEFILE )
-			if (open(name, O_RDONLY | O_LARGEFILE) >= 0)
-#else
-			if (open(name, O_RDONLY) >= 0)
-#endif
-			{
-				if (get_free_space(name, verbosity_level) < (2*MEGA))
+			if ((streamout = open(name, O_WRONLY | O_CREAT | O_DETECTED_FLAG, 0644)) < 0) {
+				if (get_free_space(name) < (2*MEGA))
 					/* it might come here when the platter is full after a -f */
 					die(1, "[Error] Seems your platter is full...\n");
 				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [a]ppend, [q]uit? \n", name);
-				while (1) {
-					if (overwrite_all_flag == true)
-						op = 'o';
-					else {
-						while ((op = fgetc(stdin)) == EOF)
-							usleep(1);
-						fgetc(stdin);	/* probably need to do this for second time it
-								   comes around this loop */
-					}
 
-					if (op == 'o' || op == 'x') {
-#if defined( HAS_LARGEFILE )
-						if ((streamout = open(name, O_WRONLY | O_TRUNC | O_LARGEFILE)) < 0)
-#else
-						if ((streamout = open(name, O_WRONLY | O_TRUNC)) < 0)
-#endif
-							die(1, "\n[Error] Error opening file %s\n", name);
+				if (overwrite_all_flag == true)
+					op = 'o';
+				else
+					op = get_option("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [a]ppend, [q]uit\n", "oxaq");
 
-						overwrite_flag = true;
-						if (op == 'x')
-							overwrite_all_flag = true;
-						break;
-					} else if (op == 'a') {
-#if defined( HAS_LARGEFILE )
-						if ((streamout = open(name, O_WRONLY | O_APPEND | O_LARGEFILE)) < 0)
-#else
-						if ((streamout = open(name, O_WRONLY | O_APPEND)) < 0)
-#endif
-							die(1, "\n[Error] Error opening file %s\n", name);
+				if (op == 'o' || op == 'x') {
+					if ((streamout = open(name, O_WRONLY | O_TRUNC | O_DETECTED_FLAG)) < 0)
+						die(1, "\n[Error] Error opening file %s\n", name);
 
-						if (verbosity_level >= 1)
-							printe("[Info] User chose append\n");
-						break;
-					} else if (op == 'q') {
-						DVDCloseFile(dvd_file);
-						DVDClose(dvd);
-						exit(1);
-					} else
-						printe("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [a]ppend, [q]uit the next time ;-)\n");
+					overwrite_flag = true;
+					if (op == 'x')
+						overwrite_all_flag = true;
+				} else if (op == 'a') {
+					if ((streamout = open(name, O_WRONLY | O_APPEND | O_DETECTED_FLAG)) < 0)
+						die(1, "\n[Error] Error opening file %s\n", name);
+
+					if (verbosity_level >= 1)
+						printe("[Info] User chose append\n");
+				} else if (op == 'q') {
+					DVDCloseFile(dvd_file);
+					DVDClose(dvd);
+					exit(1);
 				}
-			} else {
-				/*assign the stream */
-#if defined( HAS_LARGEFILE )
-				if ((streamout = open(name, O_WRONLY | O_CREAT | O_LARGEFILE, 0644)) < 0)
-#else
-				if ((streamout = open(name, O_WRONLY | O_CREAT, 0644)) < 0)
-#endif
-					die(1, "\n[Error] Error opening file %s\n", name);
 			}
 		}
 
@@ -1030,13 +1004,13 @@ int main(int argc, char *argv[])
 
 		file_block_count = block_count;
 		starttime = time(NULL);
-		for (;(offset + (off_t) seek_start) < ((off_t) file_size_in_blocks - (off_t) stop_before_end) &&
+		for (;(offset + (off_t) start_sector) < ((off_t) file_size_in_blocks - (off_t) end_sector) &&
 		      offset - (off_t) max_filesize_in_blocks_summed - (off_t) angle_blocks_skipped < max_filesize_in_blocks;
 		      offset += file_block_count) {
 			int tries = 0, skipped_blocks = 0;
 			/* Only read and write as many blocks as there are left in the file */
-			if ((offset + file_block_count + (off_t) seek_start) > ((off_t) file_size_in_blocks - (off_t) stop_before_end)) {
-				file_block_count = (off_t)file_size_in_blocks - (off_t)stop_before_end - offset - (off_t)seek_start;
+			if ((offset + file_block_count + (off_t) start_sector) > ((off_t) file_size_in_blocks - (off_t) end_sector)) {
+				file_block_count = (off_t)file_size_in_blocks - (off_t)end_sector - offset - (off_t)start_sector;
 			}
 
 			if (offset + file_block_count -
@@ -1047,9 +1021,7 @@ int main(int argc, char *argv[])
 						   (off_t)max_filesize_in_blocks_summed - (off_t)angle_blocks_skipped);
 			}
 
-			/*blocks = DVDReadBlocks(      dvd_file, (offset + seek_start), file_block_count, bufferin); */
-
-			while ((blocks = DVDReadBlocks(dvd_file, (offset + seek_start), file_block_count, bufferin)) <= 0 && tries < 10) {
+			while ((blocks = DVDReadBlocks(dvd_file, (offset + start_sector), file_block_count, bufferin)) <= 0 && tries < 10) {
 				if (tries == 9) {
 					offset += file_block_count;
 					skipped_blocks += 1;
@@ -1082,7 +1054,7 @@ int main(int argc, char *argv[])
 
 			progressUpdate(starttime,
 				       (int)offset / BLOCK_SIZE,
-				       (int)(file_size_in_blocks - seek_start - stop_before_end) / BLOCK_SIZE,
+				       (int)(file_size_in_blocks - start_sector - end_sector) / BLOCK_SIZE,
 				       false);
 		}
 
@@ -1095,7 +1067,7 @@ int main(int argc, char *argv[])
 				);
 			progressUpdate(starttime,
 				       (int)offset / BLOCK_SIZE,
-				       (int)(file_size_in_blocks - seek_start - stop_before_end) / BLOCK_SIZE,
+				       (int)(file_size_in_blocks - start_sector - end_sector) / BLOCK_SIZE,
 				       true);
 
 			close(streamout);
@@ -1129,7 +1101,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		max_filesize_in_blocks_summed += max_filesize_in_blocks;
-		printe("[Info] Successfully copied file %s\n", name);
+		printe("\n[Info] Successfully copied file %s\n", name);
 
 		j++; /* # of seperate files we have written */
 	}
@@ -1142,14 +1114,28 @@ int main(int argc, char *argv[])
 	 * clean up and close everything *
 	 *********************************/
 
+	free(pwd);
+	free(name);
+	free(onefile);
+	free(bufferin);
+	free(dvd_path);
+	free(vobcopy_call);
+	free(logfile_path);
+	free(provided_input_dir);
+	free(provided_output_dir);
+
+	for (i = 0; i < 4; i++)
+		free(alternate_output_dir[i]);
+	free(alternate_output_dir);
+
 	ifoClose(vts_file);
 	ifoClose(vmg_file);
 	DVDCloseFile(dvd_file);
 	DVDClose(dvd);
 
 	/*Print the status*/
-	printe("\n[Info] Copying finished! Let's see if the sizes match (roughly)\n");
-	printe("\n[Info] Difference in bytes: %ld", (vob_size - disk_vob_size)); /*REMOVE, TESTING ONLY*/
+	printe("\n[Info] Copying finished! Let's see if the sizes match (roughly)\n\n");
+	printe("\n[Info] Difference in bytes: %lld\n", (vob_size - disk_vob_size)); /*REMOVE, TESTING ONLY*/
 	printe(  "[Info] Combined size of title-vobs: %.0f (%.0f MB)\n", (float)vob_size, (float)vob_size / (float)MEGA);
 	printe(  "[Info] Copied size (size on disk):  %.0f (%.0f MB)\n", (float)disk_vob_size, (float)disk_vob_size / (float)MEGA);
 
@@ -1159,7 +1145,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	printe("[Info] Everything seems to be fine, the sizes match pretty good ;-)\n");
+	printe("[Info] Everything seems to be fine, the sizes match pretty good\n");
 	printe("[Hint] Have a lot of fun!\n");
 	return 0;
 }
@@ -1189,7 +1175,7 @@ int add_end_slash(char *path)
  * get available space on target filesystem
  */
 
-off_t get_free_space(char *path, int verbosity_level)
+off_t get_free_space(char *path)
 {
 
 #ifdef USE_STATFS
@@ -1233,7 +1219,7 @@ off_t get_free_space(char *path, int verbosity_level)
  * get used space on dvd (for mirroring)
  */
 
-off_t get_used_space(char *path, int verbosity_level)
+off_t get_used_space(char *path)
 {
 
 #ifdef USE_STATFS
@@ -1351,41 +1337,37 @@ int is_nav_pack(unsigned char *buffer)
 
 void re_name(char *output_file)
 {
-	char new_output_file[255];
+	char new_output_file[MAX_PATH_LEN];
 	strcpy(new_output_file, output_file);
 	new_output_file[strlen(new_output_file) - 8] = 0;
 
-	if (!link(output_file, new_output_file)) {
-		if (unlink(output_file)) {
-			printe("[Error] Could not remove old filename: %s \n",
-				output_file);
-			printe("[Hint] This: %s is a hardlink to %s. Dunno what to do... \n",
-				new_output_file,
-				output_file);
-		}
-		/*            else
-		   printe("[Info] Removed \".partial\" from %s since it got copied in full \n",output_file ); */
-	} else {
-		if (errno == EEXIST && !overwrite_flag) {
-			printe("[Error] File %s already exists! Gonna name the new one %s.dupe \n",
-			       new_output_file,
-			       new_output_file);
-			strcat(new_output_file, ".dupe");
-			rename(output_file, new_output_file);
-		}
-		if (errno == EEXIST && overwrite_flag) {
-			rename(output_file, new_output_file);
-		}
-
-		if (errno == EPERM) {	/*EPERM means that the filesystem doesn't allow hardlinks, e.g. smb */
+	/*Check errno on error*/
+	if (link(output_file, new_output_file)) {
+		if (errno == EEXIST) {
+			if (overwrite_flag)
+				rename(output_file, new_output_file);
+			else {
+				printe("[Error] File %s already exists! Gonna name the new one %s.dupe \n",
+					new_output_file,
+					new_output_file);
+				strcat(new_output_file, ".dupe");
+				rename(output_file, new_output_file);
+			}
+		} else if (errno == EPERM) { /*EPERM means that the filesystem doesn't allow hardlinks, e.g. smb */
 			/*this here is a stdio function which simply overwrites an existing file. Bad but I don't want to include another test... */
 			rename(output_file, new_output_file);
 			/*printe("[Info] Removed \".partial\" from %s since it got copied in full \n",output_file ); */
-		}
+		} else
+			printe("[Error] Unknown error, errno %d\n", errno);
 	}
+
+	if (unlink(output_file)) {
+		printe("[Error] Could not remove old filename: %s \n", output_file);
+		printe("[Hint] This: %s is a hardlink to %s. Dunno what to do... \n", new_output_file, output_file);
+	}
+
 	if (strstr(name, ".partial"))
 		name[strlen(name) - 8] = 0;
-
 }
 
 /*
@@ -1394,40 +1376,36 @@ void re_name(char *output_file)
 
 int makedir(char *name)
 {
-	if (mkdir(name, 0777)) {
-		if (errno == EEXIST) {
-			if (!overwrite_all_flag) {
-				printe("[Error] The directory %s already exists!\n", name);
-				printe("[Hint] You can either [c]ontinue writing to it, [x]overwrite all or you can [q]uit: ");
-			}
-			while (1) {
-				int op;
-				if (overwrite_all_flag == true)
-					op = 'c';
-				else {
-					while ((op = fgetc(stdin)) == EOF)
-						usleep(1);
-					fgetc(stdin);	/* probably need to do this for second time it
-							   comes around this loop */
-				}
+	int op;
 
-				if (op == 'c' || op == 'x') {
-					if (op == 'x')
-						overwrite_all_flag = true;
-					return 0;
-				} else if (op == 'q')
-					exit(1);
-				else
-					printe("\n[Hint] please choose [c]ontinue, [x]overwrite all or [q]uit the next time ;-)\n");
-			}
+	if (!mkdir(name, 0777))
+		return 0;
 
-		} else/*most probably the user has no right to create dir or space if full or something */
-			die(1,  "[Error] Creating of directory %s\n failed! \n"
-				"[Error] error: %s\n",
-				name,
-				strerror(errno)
-			);
-	}
+	/*Check errno*/
+	if (errno == EEXIST) {
+		if (!overwrite_all_flag) {
+			printe("[Error] The directory %s already exists!\n", name);
+			printe("[Hint] You can either [c]ontinue writing to it, [x]overwrite all or you can [q]uit: ");
+		}
+
+		if (overwrite_all_flag == true)
+			op = 'c';
+		else
+			op = get_option("\n[Hint] please choose [c]ontinue, [x]overwrite all or [q]uit\n", "cxq");
+
+		if (op == 'c' || op == 'x') {
+			if (op == 'x')
+				overwrite_all_flag = true;
+			return 0;
+		} else if (op == 'q')
+			exit(1);
+
+	} else /*most probably the user has doesn't the permissions for creating a dir or there isn't enough space'*/
+		die(1,  "[Error] Creating of directory %s\n failed! \n"
+			"[Error] error: %s\n",
+			name,
+			strerror(errno));
+
 	return 0;
 }
 
@@ -1453,21 +1431,21 @@ int progressUpdate(int starttime, int cur, int tot, int force)
 		curtime = time(NULL);
 
 		printf("\r");
-/* 	   calc it this way so it's easy to change later */
-/* 	   2 for brackets, 1 for space, 5 for percent complete, 1 for space, 6 for time left, 1 for space */
-		barLen = cols - 2 - 1 - 5 - 1 - 6 - 1;
+		/*calc it this way so it's easy to change later */
+		/*2 for brackets, 1 for space, 5 for percent complete, 1 for space, 6 for time left, 1 for space, 1 for 100.0%*/
+		barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1;
 		barChar = tot / barLen;
 		percentComplete = (float)((float)cur / (float)tot * 100.0);
 		percentLeft = 100 - percentComplete;
 		numChars = cur / barChar;
 
-/* 	   guess remaining time */
+		/*guess remaining time */
 		timeSoFar = curtime - starttime;
-		if (percentComplete == 0) {
+		if (percentComplete == 0)
 			timePerPercent = 0;
-		} else {
+		else
 			timePerPercent = (float)(timeSoFar / percentComplete);
-		}
+
 		timeLeft = timePerPercent * percentLeft;
 		minsLeft = (int)(timeLeft / 60);
 		secsLeft = (int)(timeLeft % 60);
@@ -1481,22 +1459,24 @@ int progressUpdate(int starttime, int cur, int tot, int force)
 			printf(" ");
 		}
 		printf("] ");
-		printf("%5.1f%% %02d:%02d ", percentComplete, minsLeft,
-		       secsLeft);
+		printf("%6.1f%% %02d:%02d ", percentComplete, minsLeft, secsLeft);
 		fflush(stdout);
 	}
+
 	return (0);
 }
 
-void install_signal_handlers()
+void set_signal_handlers(void)
 {
 	struct sigaction action;
 
+	/*SIGALRM or watchdog handler*/
 	action.sa_flags = 0;
 	action.sa_handler = watchdog_handler;
 	sigemptyset(&action.sa_mask);
 	sigaction(SIGALRM, &action, NULL);
 
+	/*SIGTERM or ctrl+c handler*/
 	action.sa_flags = 0;
 	action.sa_handler = shutdown_handler;
 	sigemptyset(&action.sa_mask);
@@ -1505,7 +1485,7 @@ void install_signal_handlers()
 
 void watchdog_handler(int signal)
 {
-	printe("\n[Info] Timer expired - shooting myself in the head.\n");
+	printe("\n[Info] Timer expired - terminating program.\n");
 	kill(getpid(), SIGTERM);
 }
 
@@ -1513,17 +1493,6 @@ void shutdown_handler(int signal)
 {
 	printe("\n[Info] Terminate signal received, exiting.\n");
 	_exit(2);
-}
-
-/*Zero's string, and then copies the source*/
-char *safestrncpy(char *dest, const char *src, size_t n)
-{
-	memset(dest, 0, n);
-
-	if (n <= 1)
-		return NULL;
-
-	return strncpy(dest, src, n - 1);
 }
 
 #if defined(__APPLE__) && defined(__GNUC__) || defined(OpenBSD)
@@ -1541,9 +1510,10 @@ int check_progress(void)
 {
 	static int progress_time = 0;
 
-	if (progress_time == 0 || progress_time != time(NULL)) {
+	if (!progress_time || progress_time != time(NULL)) {
 		progress_time = time(NULL);
 		return 1;
 	}
+
 	return 0;
 }

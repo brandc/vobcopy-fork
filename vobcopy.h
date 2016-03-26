@@ -222,33 +222,40 @@
 
 #include "dvd.h"
 
+/*vobcopy.c*/
 void usage(char *);
 int add_end_slash( char * );
-off_t get_free_space( char *, int );
-off_t get_used_space( char *path, int verbosity_level );
+off_t get_free_space( char *);
+off_t get_used_space( char *path);
 int make_output_path( char *, char *, int, char *, int, int );
 int is_nav_pack( unsigned char *buffer );
 void re_name( char *output_file );
 int makedir( char *name );
-void install_signal_handlers();
+void set_signal_handlers();
 void watchdog_handler( int signal );
 void shutdown_handler( int signal );
 char *safestrncpy(char *dest, const char *src, size_t n);
 int check_progress( void ); /* this can be removed because the one below supersedes it */
 int progressUpdate( int starttime, int cur, int tot, int force );
 
-/*utils.h*/
+/*utils.c*/
+extern const long long DVD_SECTOR_SIZE;
 extern const long long BLOCK_SIZE;
 extern const long long KILO;
 extern const long long MEGA;
 extern const long long GIGA;
 
+extern const size_t MAX_PATH_LEN;
+extern const int O_DETECTED_FLAG;
+
 void printe(char *str, ...);
+void *palloc(size_t element, size_t elements);
 void strrepl(char *str, char orig, char new);
 long long unsigned int suffix2llu(char input);
 void die(int ret, const char *cause_of_death, ...);
 char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
+char *safestrncpy(char *dest, const char *src, size_t n);
 
 /*mirror.c*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
