@@ -64,15 +64,15 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		       "[Error] or dirs behind -1, -2 ... are NOT allowed with -m!\n");
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
-	char video_ts_dir[263];
+	char video_ts_dir[MAX_PATH_LEN];
 	char number[8];
-	char input_file[280];
-	char output_file[255];
+	char input_file[MAX_PATH_LEN];
+	char output_file[MAX_PATH_LEN];
 	int i, start, title_nr = 0;
 	off_t file_size;
 	double tmp_i = 0, tmp_file_size = 0;
 	int k = 0;
-	char d_name[256];
+	char d_name[MAX_PATH_LEN];
 
 	safestrncpy(name, pwd, MAX_PATH_LEN - 34);
 	strncat(name, dvd_name, 33);
@@ -88,11 +88,11 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 	}
 
 	/*TODO: substitute with open_dir function */
-	strcpy(video_ts_dir, provided_input_dir);
+	safestrncpy(video_ts_dir, provided_input_dir, MAX_PATH_LEN);
 	strcat(video_ts_dir, "video_ts");	/*it's either video_ts */
 	dir = opendir(video_ts_dir);	/*or VIDEO_TS */
 	if (dir == NULL) {
-		strcpy(video_ts_dir, provided_input_dir);
+		strncpy(video_ts_dir, provided_input_dir, MAX_PATH_LEN);
 		strcat(video_ts_dir, "VIDEO_TS");
 		dir = opendir(video_ts_dir);
 		if (dir == NULL)
@@ -205,7 +205,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			strcat(output_file, ".partial");
 
 			/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
-			if (open(output_file, O_RDONLY) < 0) {
+			if (open(output_file, O_RDONLY) >= 0) {
 				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", output_file);
 				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
@@ -240,7 +240,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		}
 
 		/* get the size of that file */
-		strcpy(input_file, video_ts_dir);
+		safestrncpy(input_file, video_ts_dir, MAX_PATH_LEN);
 		strcat(input_file, "/");
 		strcat(input_file, directory->d_name);
 		stat(input_file, &fileinfo);
