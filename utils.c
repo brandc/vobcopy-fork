@@ -21,7 +21,7 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sys/types.h>
+#include "vobcopy.h"
 
 #if defined(HAS_LARGEFILE) || defined (MAC_LARGEFILE)
 const int O_DETECTED_FLAG = O_LARGEFILE;
@@ -29,7 +29,7 @@ const int O_DETECTED_FLAG = O_LARGEFILE;
 const int O_DETECTED_FLAG = 0;
 #endif
 
-const long long BLOCK_SIZE      = 512LL;
+const long long BLOCK_SIZE      = 512LL; /*I believe this has more to do with POSIX*/
 const long long DVD_SECTOR_SIZE = 2048LL;
 
 const long long KILO = 1024LL;
@@ -39,11 +39,7 @@ const long long GIGA = (1024LL * 1024LL * 1024LL);
 const size_t MAX_PATH_LEN = 255;
 
 /*Confident this breaks some preprocessor magic*/
-#include <stdio.h>
 #include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 void die(int ret, const char *cause_of_death, ...)
 {
@@ -100,6 +96,20 @@ void strrepl(char *str, char orig, char new)
 	}
 }
 
+void capitalize(char *str, size_t len)
+{
+	char c;
+	size_t i;
+
+	for (i = 0; (i < len) && (c = str[i]); i++) {
+		if ((c <= 'z') && (c >= 'a')) {
+			c -= 'a';
+			c += 'A';
+
+			str[i] = c;
+		}
+	}
+}
 
 /*This was implemented five different times in a few functions*/
 /* options_str: Informs the user of options to take

@@ -249,6 +249,7 @@ extern const size_t MAX_PATH_LEN;
 extern const int O_DETECTED_FLAG;
 
 void printe(char *str, ...);
+void capitalize(char *str, size_t len);
 void *palloc(size_t element, size_t elements);
 void strrepl(char *str, char orig, char new);
 long long unsigned int suffix2llu(char input);

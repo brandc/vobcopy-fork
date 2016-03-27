@@ -68,42 +68,69 @@ int get_longest_title(dvd_reader_t *dvd);
 
 int main(int argc, char *argv[])
 {
-	struct stat fileinfo;
-
-	int streamout, block_count, blocks, file_block_count;
-	int op;
-
-	unsigned char *bufferin;
-	char *dvd_path, *logfile_path, *size_suffix, *pwd, *onefile;
-	char *provided_output_dir, *provided_input_dir, *vobcopy_call;
-
-	char logfile_name[20];
-	char dvd_name[35], provided_dvd_name[35];
-	char **alternate_output_dir;
-	int i = 0, j = 0, argc_i = 0, alternate_dir_count = 0;
-	int partcount = 0, get_dvd_name_return, options_char = 0;
-	int dvd_count = 0, paths_taken = 0, fast_factor = 1;
-	int watchdog_minutes = 0;
-	long long unsigned int start_sector = 0, end_sector = 0, temp_var;
-	off_t pwd_free, vob_size = 0;
-	off_t offset = 0, free_space = 0;
-	off_t max_filesize_in_blocks = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
-	off_t max_filesize_in_blocks_summed = 0, angle_blocks_skipped = 0;
-	ssize_t file_size_in_blocks = 0;
-	bool mounted = false, provided_output_dir_flag = false;
-	bool verbose_flag = false, provided_input_dir_flag = false;
-	bool force_flag = false, info_flag = false, cut_flag = false;
-	bool large_file_flag = false, titleid_flag = false;
-	bool mirror_flag = false, provided_dvd_name_flag = false;
-	bool stdout_flag = false;
-	bool fast_switch = false, onefile_flag = false;
-	bool quiet_flag = false, longest_title_flag = false;
-
-	dvd_reader_t *dvd = NULL;
-	dvd_file_t *dvd_file = NULL;
 	extern char *optarg;
 	extern int optind, optopt;
 
+	long long int temp_var;
+	int op, i, num_of_files, partcount;
+	int streamout, block_count, blocks, file_block_count;
+
+	unsigned char *bufferin = NULL;
+	long long unsigned int end_sector   = 0;
+	long long unsigned int start_sector = 0;
+
+	char *pwd                   = NULL;
+	char *onefile               = NULL;
+	char *dvd_path              = NULL;
+	char *size_suffix           = NULL;
+	char *vobcopy_call          = NULL;
+	char *logfile_path          = NULL;
+	char *provided_input_dir    = NULL;
+	char *provided_output_dir   = NULL;
+	char **alternate_output_dir = NULL;
+
+	char dvd_name[35];
+	char logfile_name[20];
+	char provided_dvd_name[35];
+
+	dvd_reader_t *dvd      = NULL;
+	dvd_file_t   *dvd_file = NULL;
+
+	int dvd_count           = 0;
+	int paths_taken         = 0;
+	int fast_factor         = 1;
+	int options_char        = 0;
+	int watchdog_minutes    = 0;
+	int alternate_dir_count = 0;
+	int get_dvd_name_return = 0;
+
+	off_t offset                        = 0;
+	off_t pwd_free                      = 0;
+	off_t vob_size                      = 0;
+	off_t free_space                    = 0;
+	off_t angle_blocks_skipped          = 0;
+	ssize_t file_size_in_blocks         = 0;
+	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
+	off_t max_filesize_in_blocks_summed = 0;
+
+	bool mounted                  = false;
+	bool cut_flag                 = false;
+	bool info_flag                = false;
+	bool quiet_flag               = false;
+	bool force_flag               = false;
+	bool stdout_flag              = false;
+	bool fast_switch              = false;
+	bool mirror_flag              = false;
+	bool verbose_flag             = false;
+	bool onefile_flag             = false;
+	bool titleid_flag             = false;
+	bool large_file_flag          = false;
+	bool longest_title_flag       = false;
+	bool provided_dvd_name_flag   = false;
+	bool provided_input_dir_flag  = false;
+	bool provided_output_dir_flag = false;
+
+	/*Allocating buffers*/
 	pwd                 = palloc(sizeof(char), MAX_PATH_LEN);
 	name                = palloc(sizeof(char), MAX_PATH_LEN);
 	onefile             = palloc(sizeof(char), MAX_PATH_LEN);
@@ -112,7 +139,6 @@ int main(int argc, char *argv[])
 	provided_output_dir = palloc(sizeof(char), MAX_PATH_LEN);
 	provided_input_dir  = palloc(sizeof(char), MAX_PATH_LEN);
 	logfile_path        = palloc(sizeof(char), MAX_PATH_LEN);
-
 	bufferin            = palloc(sizeof(unsigned char), (DVD_VIDEO_LB_LEN * BLOCK_COUNT));
 
 	alternate_output_dir = palloc(sizeof(char*), MAX_PATH_LEN);
@@ -175,6 +201,8 @@ int main(int argc, char *argv[])
 	/*
 	 * the getopt part (getting the options from command line)
 	 */
+	end_sector   = 0;
+	start_sector = 0;
 	while (1) {
 #ifdef HAVE_GETOPT_LONG
 		options_char = getopt_long(argc, argv,
@@ -398,19 +426,19 @@ int main(int argc, char *argv[])
 		case 'O':	/*only one file will get copied */
 			onefile_flag = true;
 			safestrncpy(onefile, optarg, MAX_PATH_LEN);
-			i = 0;	/*this i here could be bad... */
-			while (onefile[i]) {
+
+			for (i = 0; onefile[i]; i++) {
 				onefile[i] = toupper(onefile[i]);
-				i++;
+
+				if (onefile[i - 1] == ',')
+					onefile[i] = 0;
+				else {
+					onefile[i] = ',';
+					onefile[i + 1] = 0;
+				}
 			}
-			if (onefile[i - 1] == ',')
-				onefile[i] = 0;
-			else {
-				onefile[i] = ',';
-				onefile[i + 1] = 0;
-			}
+
 			mirror_flag = true;
-			i = 0;
 			break;
 		case 'V':	/*version number output */
 			die(0, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
@@ -545,9 +573,9 @@ int main(int argc, char *argv[])
 			);
 
 		strcpy(vobcopy_call, argv[0]);
-		for (argc_i = 1; argc_i != argc; argc_i++) {
+		for (i = 1; i != argc; i++) {
 			strcat(vobcopy_call, " ");
-			strcat(vobcopy_call, argv[argc_i]);
+			strcat(vobcopy_call, argv[i]);
 		}
 
 		printe("--------------------------------------------------------------------------------\n");
@@ -880,6 +908,8 @@ int main(int argc, char *argv[])
 		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
 	}
 
+	partcount    = 0;
+	num_of_files = 0;
 	while (offset < (file_size_in_blocks - start_sector - end_sector)) {
 		partcount++;
 
@@ -1077,7 +1107,9 @@ int main(int argc, char *argv[])
 				printe("[Info] offset at the end %8.0f \n",      (float)offset);
 				printe("[Info] file_size_in_blocks %8.0f \n",    (float)file_size_in_blocks);
 			}
+
 			/* now lets see whats the size of this file in bytes */
+			struct stat fileinfo;
 			stat(name, &fileinfo);
 			disk_vob_size += (off_t)fileinfo.st_size;
 
@@ -1103,12 +1135,12 @@ int main(int argc, char *argv[])
 		max_filesize_in_blocks_summed += max_filesize_in_blocks;
 		printe("\n[Info] Successfully copied file %s\n", name);
 
-		j++; /* # of seperate files we have written */
+		num_of_files++; /* # of seperate files we have written */
 	}
 	/*end of main copy loop */
 
 	if (verbosity_level >= 1)
-		printe("[Info] # of separate files: %i\n", j);
+		printe("[Info] # of separate files: %i\n", num_of_files);
 
 	/*********************************
 	 * clean up and close everything *
