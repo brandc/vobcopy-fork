@@ -35,7 +35,7 @@ extern bool overwrite_all_flag;
 extern int overall_skipped_blocks;
 
 /*=========================================================================*/
-/*----------Why exactly does mirring the disk take so much code?-----------*/
+/*----------Why exactly does mirroring the disk take so much code?---------*/
 /*=========================================================================*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
@@ -60,7 +60,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 	printe("[Info]  Vobs size: %0.0f MB\n", (float)((float)disk_vob_size / (float)(KILO * KILO)));
 
 	if (!((force_flag || pwd_free > disk_vob_size) && alternate_dir_count < 2))
-		die(1, "[Error] Not enough free space on the destination dir. Please choose another one or -f\n"
+		die("[Error] Not enough free space on the destination dir. Please choose another one or -f\n"
 		       "[Error] or dirs behind -1, -2 ... are NOT allowed with -m!\n");
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
@@ -95,7 +95,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		strcat(video_ts_dir, "VIDEO_TS");
 		dir = opendir(video_ts_dir);
 		if (dir == NULL)
-			die(1, "[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"
+			die("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"
 			       "[Error] The dir to be opened was: %s\n"
 			       "[Hint] Please mail me what your vobcopy call plus -v -v spits out\n",
 			       video_ts_dir
@@ -179,7 +179,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 				if (op == 'o' || op == 'x') {
 					if ((streamout = open(output_file, O_WRONLY | O_TRUNC)) < 0)
-						die(1, "\n[Error] Error opening file %s\n"
+						die("\n[Error] Error opening file %s\n"
 						         "[Error] Error: %s\n",
 						       output_file,
 						       strerror(errno));
@@ -212,7 +212,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 				if (op == 'o' || op == 'x') {
 					if ((streamout = open(output_file, O_WRONLY | O_TRUNC)) < 0)
-						die(1,  "\n[Error] Error opening file %s\n"
+						die( "\n[Error] Error opening file %s\n"
 							"[Error] Error: %s\n",
 							output_file, 
 							strerror(errno));
@@ -228,7 +228,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 			/*assign the stream */
 			if ((streamout = open(output_file, O_WRONLY | O_CREAT, 0644)) < 0)
-				die(1, "\n[Error] Error opening file %s\n" 
+				die("\n[Error] Error opening file %s\n" 
 				       "[Error] Error: %s\n",
 				       output_file,
 				       strerror(errno));
@@ -267,7 +267,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
 				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
 				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0)
-					die(1, "\n[Error] Error writing to %s \n"
+					die("\n[Error] Error writing to %s \n"
 					"[Error] Error: %s\n",
 					output_file,
 					strerror(errno));
@@ -279,7 +279,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			fputc('\n', stderr);
 			if (!stdout_flag) {
 				if (fdatasync(streamout) < 0)
-					die(1, "\n[Error] error writing to %s \n"
+					die("\n[Error] error writing to %s \n"
 					       "[Error] error: %s\n",
 						output_file,
 						strerror(errno));
@@ -296,7 +296,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
 				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
 				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0)
-					die(1, "\n[Error] Error writing to %s \n"
+					die("\n[Error] Error writing to %s \n"
 					       "[Error] Error: %s\n",
 					       output_file,
 					       strerror(errno)
@@ -308,7 +308,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			printe("\n");
 			if (!stdout_flag) {
 				if (fdatasync(streamout) < 0)
-					die(1, "\n[Error] error writing to %s \n"
+					die("\n[Error] error writing to %s \n"
 					       "[Error] error: %s\n",
 					       output_file,
 					       strerror(errno)
@@ -344,7 +344,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 					/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 ); */
 					if (stat(input_file, &fileinfo) < 0)
-						die(1, "[Info] Can't stat() %s.\n", input_file);
+						die("[Info] Can't stat() %s.\n", input_file);
 
 					culm_single_vob_size += fileinfo.st_size;
 					if (verbosity_level > 1)
@@ -387,7 +387,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 				/*TODO: this skipping here writes too few bytes to the output */
 
 				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
-					die(1, "\n[Error] Error writing to %s \n"
+					die("\n[Error] Error writing to %s \n"
 					       "[Error] Error: %s, errno: %d \n",
 					       output_file,
 					       strerror(errno),
@@ -423,7 +423,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			printe("\n");
 			if (!stdout_flag) {
 				if (fdatasync(streamout) < 0)
-					die(1, "\n[Error] error writing to %s \n"
+					die("\n[Error] error writing to %s \n"
 					       "[Error] error: %s\n",
 					       output_file,
 					       strerror(errno)

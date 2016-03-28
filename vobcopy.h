@@ -223,10 +223,13 @@
 #include "dvd.h"
 
 /*vobcopy.c*/
+char *name;
+int verbosity_level;
+bool overwrite_flag;
+bool overwrite_all_flag;
+
 void usage(char *);
 int add_end_slash( char * );
-off_t get_free_space( char *);
-off_t get_used_space( char *path);
 int make_output_path( char *, char *, int, char *, int, int );
 int is_nav_pack( unsigned char *buffer );
 void re_name( char *output_file );
@@ -245,17 +248,21 @@ extern const long long KILO;
 extern const long long MEGA;
 extern const long long GIGA;
 
+const char *QUIET_LOG_FILE;
 extern const size_t MAX_PATH_LEN;
 extern const int O_DETECTED_FLAG;
 
 void printe(char *str, ...);
+off_t get_free_space( char *path);
+off_t get_used_space( char *path);
 void capitalize(char *str, size_t len);
 void *palloc(size_t element, size_t elements);
 void strrepl(char *str, char orig, char new);
 long long unsigned int suffix2llu(char input);
-void die(int ret, const char *cause_of_death, ...);
+void die(const char *cause_of_death, ...);
 char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
+long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
 
 /*mirror.c*/

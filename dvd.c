@@ -110,7 +110,7 @@ int get_dvd_name(const char *device, char *title)
  *         1 if successful and mounted
  * returns <0 if error
  */
-int get_device( char *path, char *device )
+int get_device(char *path, char *device)
 {
 
 #if ( !defined( __sun ) )
@@ -534,12 +534,11 @@ int get_device_on_your_own( char *path, char *device )
 
 off_t get_vob_size( int title, char *provided_input_dir ) 
 {
-	/*Why 278 exactly?*/
-	char stat_path[278];
-	char path_to_vobs[278];
-	char path_to_vobs1[278];
-	char path_to_vobs2[278];
-	char path_to_vobs3[278];
+	char stat_path[MAX_PATH_LEN];
+	char path_to_vobs[MAX_PATH_LEN];
+	char path_to_vobs1[MAX_PATH_LEN];
+	char path_to_vobs2[MAX_PATH_LEN];
+	char path_to_vobs3[MAX_PATH_LEN];
 
 	int subvob;
 	FILE *tmp_streamin1;

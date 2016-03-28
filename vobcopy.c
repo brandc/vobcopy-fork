@@ -71,7 +71,6 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind, optopt;
 
-	long long int temp_var;
 	int op, i, num_of_files, partcount;
 	int streamout, block_count, blocks, file_block_count;
 
@@ -82,7 +81,6 @@ int main(int argc, char *argv[])
 	char *pwd                   = NULL;
 	char *onefile               = NULL;
 	char *dvd_path              = NULL;
-	char *size_suffix           = NULL;
 	char *vobcopy_call          = NULL;
 	char *logfile_path          = NULL;
 	char *provided_input_dir    = NULL;
@@ -90,7 +88,6 @@ int main(int argc, char *argv[])
 	char **alternate_output_dir = NULL;
 
 	char dvd_name[35];
-	char logfile_name[20];
 	char provided_dvd_name[35];
 
 	dvd_reader_t *dvd      = NULL;
@@ -110,8 +107,8 @@ int main(int argc, char *argv[])
 	off_t free_space                    = 0;
 	off_t angle_blocks_skipped          = 0;
 	ssize_t file_size_in_blocks         = 0;
-	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
 	off_t max_filesize_in_blocks_summed = 0;
+	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
 
 	bool mounted                  = false;
 	bool cut_flag                 = false;
@@ -201,16 +198,13 @@ int main(int argc, char *argv[])
 	/*
 	 * the getopt part (getting the options from command line)
 	 */
-	end_sector   = 0;
-	start_sector = 0;
 	while (1) {
 #ifdef HAVE_GETOPT_LONG
 		options_char = getopt_long(argc, argv,
 					   "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix",
 					   long_options, &option_index);
 #else
-		options_char =
-		    getopt(argc, argv,
+		options_char = getopt(argc, argv,
 			   "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-");
 #endif
 
@@ -221,54 +215,33 @@ int main(int argc, char *argv[])
 
 		case 'a':	/*angle */
 			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -a has to be a number! \n");
+				die("[Error] The thing behind -a has to be a number! \n");
 
 			sscanf(optarg, "%i", &angle);
 			angle--;	/*in the ifo they start at zero */
 			if (angle < 0)
-				die(1, "[Hint] Um, you set angle to 0, try 1 instead ;-)\n");
+				die("[Hint] Um, you set angle to 0, try 1 instead ;-)\n");
 			break;
 
 		case 'b':	/*size to skip from the beginning (beginning-offset) */
-			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -b has to be a number! \n");
-
-			temp_var = atol(optarg);
-			size_suffix = strpbrk(optarg, "bkmgBKMG");
-			if (!size_suffix)
-				die(1, "[Error] Wrong suffix behind -b, only b,k,m or g \n");
-
-			temp_var *= suffix2llu(*size_suffix);
-
-			start_sector = abs(temp_var / DVD_SECTOR_SIZE);
-			if (start_sector < 0)
-				start_sector = 0;
+			start_sector = opt2llu(optarg, 'b');
 
 			cut_flag = true;
 			break;
 
-		case 'c':	/*chapter *//*NOT WORKING!! */
+		case 'c':	/*chapter *//*NOT WORKING!!*/
 			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -c has to be a number! \n");
+				die("[Error] The thing behind -c has to be a number! \n");
 
-			sscanf(optarg, "%i", &chapid);
+			chapid = atoi(optarg);
+			if (chapid < 1)
+				die("Not a valid chapter number");
+
 			chapid--;	/*in the ifo they start at zero */
 			break;
 
 		case 'e':	/*size to stop from the end (end-offset) */
-			if (!isdigit((int)optarg[0]))
-				die(1, "[Error] The thing behind -e has to be a number! \n");
-
-			temp_var = atol(optarg);
-			size_suffix = strpbrk(optarg, "bkmgBKMG");
-			if (!size_suffix)
-				die(1, "[Error] Wrong suffix behind -b, only b,k,m or g \n");
-
-			temp_var *= suffix2llu(*size_suffix);
-
-			end_sector = abs(temp_var / DVD_SECTOR_SIZE);
-			if (end_sector < 0)
-				end_sector = 0;
+			end_sector = opt2llu(optarg, 'e');
 
 			cut_flag = true;
 			break;
@@ -284,7 +257,7 @@ int main(int argc, char *argv[])
 
 		case 'i':	/*input dir, if the automatic needs to be overridden */
 			if (isdigit((int)*optarg))
-				die(1, "[Error] Erm, the number comes behind -n ... \n");
+				die("[Error] Erm, the number comes behind -n ... \n");
 
 			printe("[Hint] You use -i. Normally this is not necessary, vobcopy finds the input dir by itself." 
 			       "This option is only there if vobcopy makes trouble.\n");
@@ -318,7 +291,7 @@ int main(int argc, char *argv[])
 
 		case 'n':	/*title number */
 			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -n has to be a number! \n");
+				die("[Error] The thing behind -n has to be a number! \n");
 
 			sscanf(optarg, "%i", &titleid);
 			titleid_flag = true;
@@ -349,7 +322,7 @@ int main(int argc, char *argv[])
 		case '3':
 		case '4':
 			if (alternate_dir_count < options_char - 48)
-				die(1, "[Error] Please specify output dirs in this order: -o -1 -2 -3 -4 \n");
+				die("[Error] Please specify output dirs in this order: -o -1 -2 -3 -4 \n");
 
 			if (isdigit((int)*optarg))
 				printe("[Hint] Erm, the number comes behind -n ... \n");
@@ -383,7 +356,7 @@ int main(int argc, char *argv[])
 		case 'w':	/*sets a watchdog timer to cap the amount of time spent
 				   grunging about on a heavily protected disc */
 			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -w has to be a number!\n");
+				die("[Error] The thing behind -w has to be a number!\n");
 			sscanf(optarg, "%i", &watchdog_minutes);
 			if (watchdog_minutes < 1) {
 				printe("[Hint] Negative minutes aren't allowed - disabling watchdog.\n");
@@ -397,7 +370,7 @@ int main(int argc, char *argv[])
 
 		case 'F':	/*Fast-switch */
 			if (!isdigit((int)*optarg))
-				die(1, "[Error] The thing behind -F has to be a number! \n");
+				die("[Error] The thing behind -F has to be a number! \n");
 			sscanf(optarg, "%i", &fast_factor);
 			if (fast_factor > BLOCK_COUNT) {	/*atm is BLOCK_COUNT == 64 */
 				printe("[Hint] The largest value for -F is %d at the moment - used that one...\n", BLOCK_COUNT);
@@ -415,7 +388,7 @@ int main(int argc, char *argv[])
 		case 'L':	/*logfile-path (in case your system crashes every time you
 				   call vobcopy (and since the normal logs get written to 
 				   /tmp and that gets cleared at every reboot... ) */
-			strncpy(logfile_path, optarg, sizeof(logfile_path) - 2);	/* -s so room for '/' */
+			safestrncpy(logfile_path, optarg, sizeof(logfile_path) - 1); /* -s so room for '/' */
 			strcat(logfile_path, "/");
 			logfile_path[sizeof(logfile_path) - 1] = '\0';
 
@@ -441,7 +414,8 @@ int main(int argc, char *argv[])
 			mirror_flag = true;
 			break;
 		case 'V':	/*version number output */
-			die(0, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
+			fprintf(stderr, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
+			exit(0);
 			break;
 
 		case '?':	/*probably never gets here, the others should catch it */
@@ -465,31 +439,31 @@ int main(int argc, char *argv[])
 	printe("Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
 	printe("[Hint] All lines starting with \"libdvdread:\" are not from vobcopy but from the libdvdread-library\n");
 
+
 	/*get the current working directory */
 	if (provided_output_dir_flag) {
 		strcpy(pwd, provided_output_dir);
 	} else {
 		if (getcwd(pwd, MAX_PATH_LEN) == NULL)
-			die(1,  "\n[Error] Hmm, the path length of your current directory is really large (>255)\n",
+			die("\n[Error] Hmm, the path length of your current directory is really large (>255)\n",
 				"[Hint] Change to a path with shorter path length pleeeease ;-)\n");
 	}
 
 	add_end_slash(pwd);
 
 	if (quiet_flag) {
-		int temp;
-		char tmp_path[268];
+		int fd;
+		char tmp_path[MAX_PATH_LEN];
 
-		strcpy(tmp_path, pwd);
-		strcat(tmp_path, "vobcopy.bla");
+		safestrncpy(tmp_path, pwd, MAX_PATH_LEN - strlen(QUIET_LOG_FILE));
+		strcat(tmp_path, QUIET_LOG_FILE);
 		printe("[Hint] Quiet mode - All messages will now end up in %s\n", tmp_path);
-		if ((temp = open(tmp_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
+		if ((fd = open(tmp_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
 			if (errno == EEXIST) {
 				if (force_flag)
 					printf("[Warning] Overwriting %s as requested with -f\n", tmp_path);
 				else
-					die(1,
-					    "[Error] Error: %s\n",
+					die("[Error] Error: %s\n",
 					    "[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here.\n",
 					    "[Hint] Use -f to override or simply delete that file\n",
 					    strerror(errno),
@@ -502,7 +476,7 @@ int main(int argc, char *argv[])
 					exit(1);
 			}
 		} else
-			close(temp);
+			close(fd);
 
 		if (chmod(tmp_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
 			printf("[Error] Error: %s\n", strerror(errno));
@@ -512,7 +486,6 @@ int main(int argc, char *argv[])
 				exit(1);
 		}
 
-		/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
 		/*reopen the already tested file and attach stderr to it */
 		if (freopen(tmp_path, "a", stderr) == NULL) {
 			printf("[Error] Error: %s\n", strerror(errno));
@@ -524,18 +497,16 @@ int main(int argc, char *argv[])
 	}
 
 	if (verbosity_level > 1) {	/* this here starts writing the logfile */
-		int temp;
+		int fd;
 		printe("[Info] High level of verbosity\n");
 
 		if (strlen(logfile_path) < 3)
 			strcpy(logfile_path, pwd);
-		strcpy(logfile_name, "vobcopy_");
-		strcat(logfile_name, VERSION);
-		strcat(logfile_name, ".log");
-		strcat(logfile_path, logfile_name);
+		/*This concatenates "vobcopy_", the version, and then ".log"*/
+		strcat(logfile_path, "vobcopy_" VERSION ".log");
 
 		/*Why is this file created with persissions set then closed and finally permissions are set once more?*/
-		if ((temp = open(logfile_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
+		if ((fd = open(logfile_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
 			printf("[Error] Error: %s\n", strerror(errno));
 			if (errno == EEXIST) {
 				printf("\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here. \n",
@@ -549,7 +520,7 @@ int main(int argc, char *argv[])
 					exit(1);
 			}
 		} else
-			close(temp);
+			close(fd);
 
 		if (chmod(logfile_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
 			printf("[Error] Error: %s\n", strerror(errno));
@@ -564,9 +535,8 @@ int main(int argc, char *argv[])
 		       "these questions end up in the log file so you don't see them...\n");
 		printe("[Hint] If you don't like that position, use -L /path/to/logfile/ instead of -v -v\n");
 
-		/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
 		if (freopen(logfile_path, "a", stderr) == NULL)
-			die(1, "[Error] Error: %s\n"
+			die("[Error] Error: %s\n"
 			       "[Error] Aaah! Re-direct of stderr to %s didn't work! \n",
 				strerror(errno),
 			        logfile_path
@@ -584,7 +554,7 @@ int main(int argc, char *argv[])
 
 	/*sanity check: -m and -n are mutually exclusive... */
 	if (titleid_flag && mirror_flag)
-		die(1, "\n[Error] There can be only one: either -m or -n...\n");
+		die("\n[Error] There can be only one: either -m or -n...\n");
 
 	/*
 	 * Check if the provided path is too long
@@ -593,7 +563,7 @@ int main(int argc, char *argv[])
 		provided_input_dir_flag = true;
 		if (strlen(argv[optind]) >= MAX_PATH_LEN)
 			/*Seriously? "_Bloody_ path"?*/
-			die(1, "\n[Error] Bloody path to long '%s'\n", argv[optind]);
+			die("\n[Error] Bloody path to long '%s'\n", argv[optind]);
 		safestrncpy(provided_input_dir, argv[optind], MAX_PATH_LEN);
 	}
 
@@ -960,7 +930,7 @@ int main(int argc, char *argv[])
 				max_filesize_in_blocks = (2*MEGA); /*if free_space is more than  2 GB fall back to max_filesize_in_blocks=2GB */
 			}
 
-			if (close(open(name, O_RDONLY)) >= 0) {
+			if (open(name, O_RDONLY) >= 0) {
 				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", name);
 				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
@@ -972,7 +942,7 @@ int main(int argc, char *argv[])
 
 				if (op == 'o' || op == 'x') {
 					if ((streamout = open(name, O_WRONLY | O_TRUNC)) < 0)
-						die(1, "\n[Error] Error opening file %s\n"
+						die("\n[Error] Error opening file %s\n"
 						       "[Error] Error: %s\n",
 						       name,
 						       strerror(errno));
@@ -994,7 +964,7 @@ int main(int argc, char *argv[])
 			if ((streamout = open(name, O_WRONLY | O_CREAT | O_DETECTED_FLAG, 0644)) < 0) {
 				if (get_free_space(name) < (2*MEGA))
 					/* it might come here when the platter is full after a -f */
-					die(1, "[Error] Seems your platter is full...\n");
+					die("[Error] Seems your platter is full...\n");
 				if (overwrite_all_flag == false)
 					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [a]ppend, [q]uit? \n", name);
 
@@ -1005,14 +975,14 @@ int main(int argc, char *argv[])
 
 				if (op == 'o' || op == 'x') {
 					if ((streamout = open(name, O_WRONLY | O_TRUNC | O_DETECTED_FLAG)) < 0)
-						die(1, "\n[Error] Error opening file %s\n", name);
+						die("\n[Error] Error opening file %s\n", name);
 
 					overwrite_flag = true;
 					if (op == 'x')
 						overwrite_all_flag = true;
 				} else if (op == 'a') {
 					if ((streamout = open(name, O_WRONLY | O_APPEND | O_DETECTED_FLAG)) < 0)
-						die(1, "\n[Error] Error opening file %s\n", name);
+						die("\n[Error] Error opening file %s\n", name);
 
 					if (verbosity_level >= 1)
 						printe("[Info] User chose append\n");
@@ -1071,7 +1041,7 @@ int main(int argc, char *argv[])
 			/*TODO: this skipping here writes too few bytes to the output */
 
 			if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
-				die(1, "\n[Error] Write() error\n"
+				die("\n[Error] Write() error\n"
 				       "[Error] It's possible that you try to write files\n"
 				       "[Error] greater than 2GB to filesystem which\n"
 				       "[Error] doesn't support it? (try without -l)\n"
@@ -1090,7 +1060,7 @@ int main(int argc, char *argv[])
 
 		if (!stdout_flag) {
 			if (fdatasync(streamout) < 0)
-				die(1, "\n[Error] error writing to %s \n"
+				die("\n[Error] error writing to %s \n"
 				       "[Error] error: %s\n",
 				       name,
 				       strerror(errno)
@@ -1204,94 +1174,6 @@ int add_end_slash(char *path)
 }
 
 /*
- * get available space on target filesystem
- */
-
-off_t get_free_space(char *path)
-{
-
-#ifdef USE_STATFS
-	struct statfs buf1;
-#else
-	struct statvfs buf1;
-#endif
-	/*   ssize_t temp1, temp2; */
-	long temp1, temp2;
-	off_t sum;
-#ifdef USE_STATFS
-	statfs(path, &buf1);
-	if (verbosity_level >= 1)
-		printe("[Info] Used the linux statfs\n");
-#else
-	statvfs(path, &buf1);
-	if (verbosity_level >= 1)
-		printe("[Info] Used statvfs\n");
-#endif
-	temp1 = buf1.f_bavail;
-	/* On Solaris at least, f_bsize is not the actual block size -- lb */
-	/* There wasn't this ifdef below, strange! How could the linux statfs
-	 * handle this since there seems to be no frsize??! */
-#ifdef USE_STATFS
-	temp2 = buf1.f_bsize;
-#else
-	temp2 = buf1.f_frsize;
-#endif
-	sum = ((off_t) temp1 * (off_t) temp2);
-	if (verbosity_level >= 1) {
-		printe("[Info] In freespace_getter:for %s : %.0f free\n", path,
-			(float)sum);
-		printe("[Info] In freespace_getter:bavail %ld * bsize %ld = above\n",
-			temp1, temp2);
-	}
-	/*   return ( buf1.f_bavail * buf1.f_bsize ); */
-	return sum;
-}
-
-/*
- * get used space on dvd (for mirroring)
- */
-
-off_t get_used_space(char *path)
-{
-
-#ifdef USE_STATFS
-	struct statfs buf2;
-#else
-	struct statvfs buf2;
-#endif
-	/*   ssize_t temp1, temp2; */
-	long temp1, temp2;
-	off_t sum;
-#ifdef USE_STATFS
-	statfs(path, &buf2);
-	if (verbosity_level >= 1)
-		printe("[Info] Used the linux statfs\n");
-#else
-	statvfs(path, &buf2);
-	if (verbosity_level >= 1)
-		printe("[Info] Used statvfs\n");
-#endif
-	temp1 = buf2.f_blocks;
-	/* On Solaris at least, f_bsize is not the actual block size -- lb */
-	/* There wasn't this ifdef below, strange! How could the linux statfs
-	 * handle this since there seems to be no frsize??! */
-#ifdef USE_STATFS
-	temp2 = buf2.f_bsize;
-#else
-	temp2 = buf2.f_frsize;
-#endif
-	sum = ((off_t) temp1 * (off_t) temp2);
-	if (verbosity_level >= 1) {
-		printe("[Info] In usedspace_getter:for %s : %.0f used\n", path,
-			(float)sum);
-		printe("[Info] In usedspace_getter:part1 %ld, part2 %ld\n",
-			temp1, temp2);
-	}
-	/*   return ( buf1.f_blocks * buf1.f_bsize ); */
-	return sum;
-}
-
-/*
  * this function concatenates the given information into a path name
  */
 
@@ -1321,7 +1203,7 @@ int make_output_path(char *pwd, char *name, int get_dvd_name_return,
 
 void usage(char *program_name)
 {
-	die(1,  "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n"
+	die("Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n"
 		"\nUsage: %s \n"
 		"if you want the main feature (title with most chapters) you don't need _any_ options!\n"
 		"Options:\n"
@@ -1361,84 +1243,6 @@ void usage(char *program_name)
 int is_nav_pack(unsigned char *buffer)
 {
 	return (buffer[41] == 0xbf && buffer[1027] == 0xbf);
-}
-
-/*
-*Rename: move file name from bla.partial to bla or mark as dublicate 
-*/
-
-void re_name(char *output_file)
-{
-	char new_output_file[MAX_PATH_LEN];
-	strcpy(new_output_file, output_file);
-	new_output_file[strlen(new_output_file) - 8] = 0;
-
-	/*Check errno on error*/
-	if (link(output_file, new_output_file)) {
-		if (errno == EEXIST) {
-			if (overwrite_flag)
-				rename(output_file, new_output_file);
-			else {
-				printe("[Error] File %s already exists! Gonna name the new one %s.dupe \n",
-					new_output_file,
-					new_output_file);
-				strcat(new_output_file, ".dupe");
-				rename(output_file, new_output_file);
-			}
-		} else if (errno == EPERM) { /*EPERM means that the filesystem doesn't allow hardlinks, e.g. smb */
-			/*this here is a stdio function which simply overwrites an existing file. Bad but I don't want to include another test... */
-			rename(output_file, new_output_file);
-			/*printe("[Info] Removed \".partial\" from %s since it got copied in full \n",output_file ); */
-		} else
-			printe("[Error] Unknown error, errno %d\n", errno);
-	}
-
-	if (unlink(output_file)) {
-		printe("[Error] Could not remove old filename: %s \n", output_file);
-		printe("[Hint] This: %s is a hardlink to %s. Dunno what to do... \n", new_output_file, output_file);
-	}
-
-	if (strstr(name, ".partial"))
-		name[strlen(name) - 8] = 0;
-}
-
-/*
-* Creates a directory with the given name, checking permissions and reacts accordingly (bails out or asks user)
-*/
-
-int makedir(char *name)
-{
-	int op;
-
-	if (!mkdir(name, 0777))
-		return 0;
-
-	/*Check errno*/
-	if (errno == EEXIST) {
-		if (!overwrite_all_flag) {
-			printe("[Error] The directory %s already exists!\n", name);
-			printe("[Hint] You can either [c]ontinue writing to it, [x]overwrite all or you can [q]uit: ");
-		}
-
-		if (overwrite_all_flag == true)
-			op = 'c';
-		else
-			op = get_option("\n[Hint] please choose [c]ontinue, [x]overwrite all or [q]uit\n", "cxq");
-
-		if (op == 'c' || op == 'x') {
-			if (op == 'x')
-				overwrite_all_flag = true;
-			return 0;
-		} else if (op == 'q')
-			exit(1);
-
-	} else /*most probably the user has doesn't the permissions for creating a dir or there isn't enough space'*/
-		die(1,  "[Error] Creating of directory %s\n failed! \n"
-			"[Error] error: %s\n",
-			name,
-			strerror(errno));
-
-	return 0;
 }
 
 /*
