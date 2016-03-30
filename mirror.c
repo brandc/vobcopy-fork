@@ -39,16 +39,17 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd, dvd_file_t *dvd_file, unsigned char *bufferin, int block_count, ifo_handle_t *vmg_file)
+	    dvd_reader_t *dvd, int block_count, ifo_handle_t *vmg_file)
 {
 	DIR *dir;
 	struct dirent *directory;
-
 	struct stat fileinfo;
 
-	int op;
 	int blocks;
 	int streamout;
+
+	dvd_file_t *dvd_file = NULL;
+	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
 
 	printe("\n[Info] DVD-name: %s\n", dvd_name);
 	if (provided_dvd_name_flag) {
@@ -135,7 +136,6 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 					if (strstr(d_name, tmp))
 						goto next;	/*if the token is found in the d_name copy */
-
 					else
 						continue;	/* next token is tested */
 				}
@@ -155,83 +155,9 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		if (stdout_flag) /*this writes to stdout */
 			streamout = STDOUT_FILENO;	/*in other words: 1, see "man stdout" */
 		else {
-			if (strstr(d_name, ";?")) {
-				printe("\n[Hint] File on dvd ends in \";?\" (%s)\n", d_name);
-				strncat(output_file, d_name, strlen(d_name) - 2);
-			} else
-				strcat(output_file, d_name);
-
-			printe("[Info] Writing to %s \n", output_file);
-
-			/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
-			if (open(output_file, O_RDONLY) >= 0) {
-				if (!overwrite_all_flag)
-					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [s]kip or [q]uit? ", output_file);
-
-				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
-
-				/* process a single character from stdin, ignore EOF bytes & newlines */
-				if (overwrite_all_flag == true)
-					op = 'o';
-				else
-					op = get_option("\n[Hint] Please choose [o]verwrite, "
-							"[x]overwrite all, [s]kip, or [q]uit\n", "oxsq");
-
-				if (op == 'o' || op == 'x') {
-					if ((streamout = open(output_file, O_WRONLY | O_TRUNC)) < 0)
-						die("\n[Error] Error opening file %s\n"
-						         "[Error] Error: %s\n",
-						       output_file,
-						       strerror(errno));
-					else
-						close(streamout);
-
-					overwrite_flag = true;
-					if (op == 'x')
-						overwrite_all_flag = true;
-				} else if (op == 'q') {
-					DVDCloseFile(dvd_file);
-					DVDClose(dvd);
-					exit(1);
-				} else if (op == 's')
-					continue;
-			}
-
-			strcat(output_file, ".partial");
-
-			/*WARNING: FILE DESCRIPTRO BEING LEAKED*/
-			if (open(output_file, O_RDONLY) >= 0) {
-				if (overwrite_all_flag == false)
-					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", output_file);
-				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
-
-				if (overwrite_all_flag == true)
-					op = 'o';
-				else
-					op = get_option("[Hint] Please choose [o]verwrite, [x]overwrite all or [q]uit\n", "oxq");
-
-				if (op == 'o' || op == 'x') {
-					if ((streamout = open(output_file, O_WRONLY | O_TRUNC)) < 0)
-						die( "\n[Error] Error opening file %s\n"
-							"[Error] Error: %s\n",
-							output_file, 
-							strerror(errno));
-					overwrite_flag = true;
-					if (op == 'x')
-						overwrite_all_flag = true;
-				} else if (op == 'q') {
-					DVDCloseFile(dvd_file);
-					DVDClose(dvd);
-					exit(1);
-				}
-			}
-
-			/*assign the stream */
-			if ((streamout = open(output_file, O_WRONLY | O_CREAT, 0644)) < 0)
-				die("\n[Error] Error opening file %s\n" 
-				       "[Error] Error: %s\n",
-				       output_file,
-				       strerror(errno));
+			streamout = open_partial(output_file);
+			if (streamout < 0)
+				die("[Error] Either didn't have access or couldn't open %s\n", output_file);
 		}
 
 		/* get the size of that file */
@@ -285,7 +211,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 						strerror(errno));
 
 				close(streamout);
-				re_name(output_file);
+				rename_partial(output_file);
 			}
 		}
 
@@ -315,7 +241,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 					);
 
 				close(streamout);
-				re_name(output_file);
+				rename_partial(output_file);
 			}
 		}
 
@@ -430,7 +356,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 					);
 
 				close(streamout);
-				re_name(output_file);
+				rename_partial(output_file);
 			}
 		}
 	}
@@ -440,7 +366,7 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 	DVDClose(dvd);
 	if (overall_skipped_blocks > 0)
 		printe("[Info] %d blocks had to be skipped, be warned.\n", overall_skipped_blocks);
-	exit(0);
+	return;
 	/*end of mirror block */
 }
 

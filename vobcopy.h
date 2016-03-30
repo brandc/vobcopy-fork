@@ -224,6 +224,7 @@
 
 /*vobcopy.c*/
 char *name;
+bool force_flag;
 int verbosity_level;
 bool overwrite_flag;
 bool overwrite_all_flag;
@@ -232,7 +233,6 @@ void usage(char *);
 int add_end_slash( char * );
 int make_output_path( char *, char *, int, char *, int, int );
 int is_nav_pack( unsigned char *buffer );
-void re_name( char *output_file );
 int makedir( char *name );
 void set_signal_handlers();
 void watchdog_handler( int signal );
@@ -253,22 +253,25 @@ extern const size_t MAX_PATH_LEN;
 extern const int O_DETECTED_FLAG;
 
 void printe(char *str, ...);
-off_t get_free_space( char *path);
-off_t get_used_space( char *path);
+void redirectlog(char *filename);
+off_t get_free_space(char *path);
+off_t get_used_space(char *path);
+void rename_partial(char *input_file);
 void capitalize(char *str, size_t len);
-void *palloc(size_t element, size_t elements);
-void strrepl(char *str, char orig, char new);
-long long unsigned int suffix2llu(char input);
 void die(const char *cause_of_death, ...);
+void strrepl(char *str, char orig, char new);
+void *palloc(size_t element, size_t elements);
+long long unsigned int suffix2llu(char input);
 char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
 long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
+int open_partial(char *filename);
 
 /*mirror.c*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd, dvd_file_t *dvd_file, unsigned char *bufferin, int block_count, ifo_handle_t *vmg_file);
+	    dvd_reader_t *dvd, int block_count, ifo_handle_t *vmg_file);
 
 #if defined(__APPLE__) && defined(__GNUC__)
 int fdatasync( int value );

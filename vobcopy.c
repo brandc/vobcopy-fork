@@ -54,6 +54,7 @@ extern int errno;
 
 char *name;
 time_t starttime;
+bool force_flag = false;
 off_t disk_vob_size = 0;
 int verbosity_level = 0;
 bool overwrite_flag = false;
@@ -114,7 +115,6 @@ int main(int argc, char *argv[])
 	bool cut_flag                 = false;
 	bool info_flag                = false;
 	bool quiet_flag               = false;
-	bool force_flag               = false;
 	bool stdout_flag              = false;
 	bool fast_switch              = false;
 	bool mirror_flag              = false;
@@ -415,7 +415,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'V':	/*version number output */
 			fprintf(stderr, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
-			exit(0);
+			return 0;
 			break;
 
 		case '?':	/*probably never gets here, the others should catch it */
@@ -452,52 +452,15 @@ int main(int argc, char *argv[])
 	add_end_slash(pwd);
 
 	if (quiet_flag) {
-		int fd;
 		char tmp_path[MAX_PATH_LEN];
 
 		safestrncpy(tmp_path, pwd, MAX_PATH_LEN - strlen(QUIET_LOG_FILE));
 		strcat(tmp_path, QUIET_LOG_FILE);
 		printe("[Hint] Quiet mode - All messages will now end up in %s\n", tmp_path);
-		if ((fd = open(tmp_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
-			if (errno == EEXIST) {
-				if (force_flag)
-					printf("[Warning] Overwriting %s as requested with -f\n", tmp_path);
-				else
-					die("[Error] Error: %s\n",
-					    "[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here.\n",
-					    "[Hint] Use -f to override or simply delete that file\n",
-					    strerror(errno),
-					    tmp_path
-					);
-			} else {
-				printf("[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path);
-				printf("[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n");
-				if (!force_flag)
-					exit(1);
-			}
-		} else
-			close(fd);
-
-		if (chmod(tmp_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
-			printf("[Error] Error: %s\n", strerror(errno));
-			printf("[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", tmp_path);
-			printf("[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n");
-			if (!force_flag)
-				exit(1);
-		}
-
-		/*reopen the already tested file and attach stderr to it */
-		if (freopen(tmp_path, "a", stderr) == NULL) {
-			printf("[Error] Error: %s\n", strerror(errno));
-			printf("[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", tmp_path);
-			printf("[Hint] Use -f to continue (at your risk of stupid ascii text ending up in your VOBs)\n");
-			if (!force_flag)
-				exit(1);
-		}
+		redirectlog(tmp_path);
 	}
 
 	if (verbosity_level > 1) {	/* this here starts writing the logfile */
-		int fd;
 		printe("[Info] High level of verbosity\n");
 
 		if (strlen(logfile_path) < 3)
@@ -505,42 +468,7 @@ int main(int argc, char *argv[])
 		/*This concatenates "vobcopy_", the version, and then ".log"*/
 		strcat(logfile_path, "vobcopy_" VERSION ".log");
 
-		/*Why is this file created with persissions set then closed and finally permissions are set once more?*/
-		if ((fd = open(logfile_path, O_RDWR | O_CREAT | O_EXCL, 0666)) == -1) {
-			printf("[Error] Error: %s\n", strerror(errno));
-			if (errno == EEXIST) {
-				printf("\n[Error] The file %s already exists. Since overwriting it can be seen as a security problem I stop here. \n",
-					logfile_path);
-				printf("[Hint] Use -f to override or simply delete that file\n");
-				if (!force_flag)
-					exit(1);
-			} else {
-				printf("[Error] Aaah! Re-direct of stderr to %s didn't work! If -f is not used I stop here... \n", logfile_path);
-				if (!force_flag)
-					exit(1);
-			}
-		} else
-			close(fd);
-
-		if (chmod(logfile_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
-			printf("[Error] Error: %s\n", strerror(errno));
-			printf("[Error] Changing mode of %s didn't work! If -f is not used I stop here... \n", logfile_path);
-			printf("[Hint] Use -f to try to continue anyway\n");
-			if (!force_flag)
-				exit(1);
-		}
-
-		printe("[Info] The log-file is written to %s\n", logfile_path);
-		printe("[Hint] Make sure that vobcopy doesn't have to ask questions (like overwriting of old files), "
-		       "these questions end up in the log file so you don't see them...\n");
-		printe("[Hint] If you don't like that position, use -L /path/to/logfile/ instead of -v -v\n");
-
-		if (freopen(logfile_path, "a", stderr) == NULL)
-			die("[Error] Error: %s\n"
-			       "[Error] Aaah! Re-direct of stderr to %s didn't work! \n",
-				strerror(errno),
-			        logfile_path
-			);
+		redirectlog(logfile_path);
 
 		strcpy(vobcopy_call, argv[0]);
 		for (i = 1; i != argc; i++) {
@@ -755,7 +683,9 @@ int main(int argc, char *argv[])
 		mirror(dvd_name, provided_dvd_name_flag, provided_dvd_name,
 		       pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
-		       dvd, dvd_file, bufferin, block_count, vmg_file);
+		       dvd, block_count, vmg_file);
+
+		goto cleanup;
 	}
 
 	/*
@@ -850,7 +780,7 @@ int main(int argc, char *argv[])
 			printe("[Hint] Nevertheless, do you want vobcopy to continue [y] or do you want to check for \n");
 			printe("[Hint] enough space first [q]?\n");
 
-			op = get_option("[Error] Please choose [y] to continue or [n] to quit\n", "ynq");
+			op = get_option("[Error] Please choose [y] to continue or [n] to quit: ", "ynq");
 
 			if (op == 'y') {
 				force_flag = true;
@@ -930,67 +860,10 @@ int main(int argc, char *argv[])
 				max_filesize_in_blocks = (2*MEGA); /*if free_space is more than  2 GB fall back to max_filesize_in_blocks=2GB */
 			}
 
-			if (open(name, O_RDONLY) >= 0) {
-				if (overwrite_all_flag == false)
-					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all or [q]uit? \n", name);
-				/*TODO: add [a]ppend  and seek thought stream till point of append is there */
-
-				if (overwrite_all_flag == true)
-					op = 'o';
-				else
-					op = get_option("\n[Hint] please choose [o]verwrite, [x]overwrite all or [q]uit", "oxq");
-
-				if (op == 'o' || op == 'x') {
-					if ((streamout = open(name, O_WRONLY | O_TRUNC)) < 0)
-						die("\n[Error] Error opening file %s\n"
-						       "[Error] Error: %s\n",
-						       name,
-						       strerror(errno));
-					else
-						close(streamout);
-
-					overwrite_flag = true;
-					if (op == 'x')
-						overwrite_all_flag = true;
-				} else if (op == 'q') {
-					DVDCloseFile(dvd_file);
-					DVDClose(dvd);
-					exit(1);
-				}
-			}
-
-			strcat(name, ".partial");
-
-			if ((streamout = open(name, O_WRONLY | O_CREAT | O_DETECTED_FLAG, 0644)) < 0) {
-				if (get_free_space(name) < (2*MEGA))
-					/* it might come here when the platter is full after a -f */
-					die("[Error] Seems your platter is full...\n");
-				if (overwrite_all_flag == false)
-					printe("\n[Error] File '%s' already exists, [o]verwrite, [x]overwrite all, [a]ppend, [q]uit? \n", name);
-
-				if (overwrite_all_flag == true)
-					op = 'o';
-				else
-					op = get_option("\n[Hint] Please choose [o]verwrite, [x]overwrite all, [a]ppend, [q]uit\n", "oxaq");
-
-				if (op == 'o' || op == 'x') {
-					if ((streamout = open(name, O_WRONLY | O_TRUNC | O_DETECTED_FLAG)) < 0)
-						die("\n[Error] Error opening file %s\n", name);
-
-					overwrite_flag = true;
-					if (op == 'x')
-						overwrite_all_flag = true;
-				} else if (op == 'a') {
-					if ((streamout = open(name, O_WRONLY | O_APPEND | O_DETECTED_FLAG)) < 0)
-						die("\n[Error] Error opening file %s\n", name);
-
-					if (verbosity_level >= 1)
-						printe("[Info] User chose append\n");
-				} else if (op == 'q') {
-					DVDCloseFile(dvd_file);
-					DVDClose(dvd);
-					exit(1);
-				}
+			streamout = open_partial(name);
+			if (streamout < 0) {
+				printe("[Error] Either don't have access or couldn't open %s\n", name);
+				goto cleanup;
 			}
 		}
 
@@ -1085,7 +958,7 @@ int main(int argc, char *argv[])
 
 			if (large_file_flag && !cut_flag) {
 				if ((vob_size - disk_vob_size) < MAX_DIFFER)
-					re_name(name);
+					rename_partial(name);
 				else {
 					printe("\n[Error] File size (%.0f) of %s differs largely from that on dvd,"
 					       " therefore keeps it's .partial\n",
@@ -1093,9 +966,9 @@ int main(int argc, char *argv[])
 					       name);
 				}
 			} else if (!cut_flag)
-				re_name(name);
+				rename_partial(name);
 			else if (cut_flag)
-				re_name(name);
+				rename_partial(name);
 
 			if (verbosity_level >= 1) {
 				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, (float)fileinfo.st_size);
@@ -1112,30 +985,11 @@ int main(int argc, char *argv[])
 	if (verbosity_level >= 1)
 		printe("[Info] # of separate files: %i\n", num_of_files);
 
-	/*********************************
-	 * clean up and close everything *
-	 *********************************/
 
-	free(pwd);
-	free(name);
-	free(onefile);
-	free(bufferin);
-	free(dvd_path);
-	free(vobcopy_call);
-	free(logfile_path);
-	free(provided_input_dir);
-	free(provided_output_dir);
 
-	for (i = 0; i < 4; i++)
-		free(alternate_output_dir[i]);
-	free(alternate_output_dir);
-
-	ifoClose(vts_file);
-	ifoClose(vmg_file);
-	DVDCloseFile(dvd_file);
-	DVDClose(dvd);
-
-	/*Print the status*/
+	/******************
+	 * Print the status
+	 */
 	printe("\n[Info] Copying finished! Let's see if the sizes match (roughly)\n\n");
 	printe("\n[Info] Difference in bytes: %lld\n", (vob_size - disk_vob_size)); /*REMOVE, TESTING ONLY*/
 	printe(  "[Info] Combined size of title-vobs: %.0f (%.0f MB)\n", (float)vob_size, (float)vob_size / (float)MEGA);
@@ -1144,11 +998,40 @@ int main(int argc, char *argv[])
 	if ((vob_size - disk_vob_size) > MAX_DIFFER) {
 		printe("[Error] Hmm, the sizes differ by more than %d\n", MAX_DIFFER);
 		printe("[Hint] Take a look with MPlayer if the output is ok\n");
-		return 0;
+		goto cleanup;
 	}
 
 	printe("[Info] Everything seems to be fine, the sizes match pretty good\n");
 	printe("[Hint] Have a lot of fun!\n");
+
+	/*********************************
+	 * clean up and close everything *
+	 *********************************/
+
+	cleanup:
+		free(pwd);
+		free(name);
+		free(onefile);
+		free(bufferin);
+		free(dvd_path);
+		free(vobcopy_call);
+		free(logfile_path);
+		free(provided_input_dir);
+		free(provided_output_dir);
+
+		for (i = 0; i < 4; i++)
+			free(alternate_output_dir[i]);
+		free(alternate_output_dir);
+
+		if (vts_file)
+			ifoClose(vts_file);
+		if (vmg_file)
+			ifoClose(vmg_file);
+		if (dvd_file)
+			DVDCloseFile(dvd_file);
+		if (dvd)
+			DVDClose(dvd);
+
 	return 0;
 }
 
@@ -1181,8 +1064,8 @@ int make_output_path(char *pwd, char *name, int get_dvd_name_return,
 		     char *dvd_name, int titleid, int partcount)
 {
 	char temp[5];
-	strcpy(name, pwd);
-	strcat(name, dvd_name);
+	safestrncpy(name, pwd, MAX_PATH_LEN);
+	strncat(name, dvd_name, MAX_PATH_LEN);
 
 	sprintf(temp, "%d", titleid);
 	strcat(name, temp);
@@ -1193,7 +1076,7 @@ int make_output_path(char *pwd, char *name, int get_dvd_name_return,
 	}
 	strcat(name, ".vob");
 
-	printe("\n[Info] Outputting to %s", name);
+	printe("\n[Info] Outputting to %s\n", name);
 	return 0;
 }
 

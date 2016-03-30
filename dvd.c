@@ -569,7 +569,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			vob_size += buf.st_size;
 		}
 
-		return ( off_t ) vob_size;
+		return (off_t)vob_size;
 	}
 
 	sprintf( stat_path, "%s_1.VOB", path_to_vobs1 );

@@ -120,16 +120,15 @@ char get_option(char *options_str, const char *opts)
 {
 	int c;
 
+	printe(options_str);
 	while ((c = fgetc(stdin))) {
-		if (c == '\n' || c == EOF)
-			continue;
-		else if (strchr(opts, c))
+		if (strchr(opts, c))
 			return c;
 		else
 			printe(options_str);
 
-		/*Sleeps for one second each iteration*/
-		sleep(1);
+		/*Sleeps for a 10th of a second each iteration*/
+		usleep(100000);
 	}
 
 	return c;
@@ -194,85 +193,6 @@ long long unsigned int opt2llu(char *opt, char optchar)
 		ret *= -1;
 
 	return ret;
-}
-
-/*
-*Rename: move file name from bla.partial to bla or mark as dublicate 
-*/
-
-void re_name(char *name)
-{
-	char new_output_file[MAX_PATH_LEN];
-
-	safestrncpy(new_output_file, name, MAX_PATH_LEN);
-	new_output_file[strlen(new_output_file) - 8] = 0;
-
-	/*Check errno on error*/
-	if (link(name, new_output_file)) {
-		if (errno == EEXIST) {
-			if (overwrite_flag)
-				rename(name, new_output_file);
-			else {
-				printe("[Error] File %s already exists! Gonna name the new one %s.dupe \n",
-					new_output_file,
-					new_output_file);
-				strcat(new_output_file, ".dupe");
-				rename(name, new_output_file);
-			}
-		} else if (errno == EPERM) { /*EPERM means that the filesystem doesn't allow hardlinks, e.g. smb */
-			/*this here is a stdio function which simply overwrites an existing file. Bad but I don't want to include another test... */
-			rename(name, new_output_file);
-			/*printe("[Info] Removed \".partial\" from %s since it got copied in full \n",output_file ); */
-		} else
-			printe("[Error] Unknown error, errno %d\n", errno);
-	}
-
-	if (unlink(name)) {
-		printe("[Error] Could not remove old filename: %s \n", name);
-		printe("[Hint] This: %s is a hardlink to %s. Dunno what to do... \n", new_output_file, name);
-	}
-
-	if (strstr(name, ".partial"))
-		name[strlen(name) - 8] = 0;
-}
-
-/*
-* Creates a directory with the given name, checking permissions and reacts accordingly (bails out or asks user)
-*/
-
-int makedir(char *name)
-{
-	int op;
-
-	if (!mkdir(name, 0777))
-		return 0;
-
-	/*Check errno*/
-	if (errno == EEXIST) {
-		if (!overwrite_all_flag) {
-			printe("[Error] The directory %s already exists!\n", name);
-			printe("[Hint] You can either [c]ontinue writing to it, [x]overwrite all or you can [q]uit: ");
-		}
-
-		if (overwrite_all_flag == true)
-			op = 'c';
-		else
-			op = get_option("\n[Hint] please choose [c]ontinue, [x]overwrite all or [q]uit\n", "cxq");
-
-		if (op == 'c' || op == 'x') {
-			if (op == 'x')
-				overwrite_all_flag = true;
-			return 0;
-		} else if (op == 'q')
-			exit(1);
-
-	} else /*most probably the user has doesn't the permissions for creating a dir or there isn't enough space'*/
-		die("[Error] Creating of directory %s\n failed! \n"
-			"[Error] error: %s\n",
-			name,
-			strerror(errno));
-
-	return 0;
 }
 
 /*
@@ -363,44 +283,119 @@ off_t get_used_space(char *path)
 	/*   return ( buf1.f_blocks * buf1.f_bsize ); */
 	return used_blocks;
 }
-/*
 
-void redirectlog(char *filename)
+bool have_access(char *pathname, bool prompt)
 {
-	struct stat finfo;
+	int op;
 
-	memset(&finfo, 0, sizeof(struct stat));
-
-	if (stat(filename, &finfo) < 0) {
+	if (access(pathname, R_OK | W_OK) < 0) {
 		switch (errno) {
 		case EACCES:
-			die("Failed to redirect log to %s\n", filename);
-		case EFAULT:
-			break;
-		case ELOOP:
-			die("Too many links to %s\n", filename);
-		case ENAMETOOLONG:
-			die("\"%s\" too long\n", filename);
+			printe("[Error] No access to %s\n", pathname);
+			return false;
 		case ENOENT:
-			die("Directory in path \"%s\" not a directory\n", filename);
-		case NOMEM:
-			die("Not enough memory\n");
-		case EOVERFLOW:
-			die("Program compiled for 32bit, and not 64bit\n");
+			break;
 		default:
-			die("Unknown error");
+			die("[Error] REPORT have_access\n");
+		}
+	} else if (!overwrite_all_flag && prompt) {
+		printe("[Error] %s exists....\n", pathname);
+		op = get_option("[Hint] Please choose [o]verwrite, "
+				"[x]overwrite all, or [q]uit: ", "oxq");
+		switch (op) {
+		case 'o':
+		case 'x':
+			break;
+		case 'q':
+		case 's':
+			return false;
+		default:
+			die("[Error] REPORT have_access\n");
 		}
 	}
 
-	if (finfo.st_mode & S_ISREG) {
-		
+	return true;
+}
+
+/*
+*Rename: move file name from bla.partial to bla or mark as dublicate 
+*/
+
+void rename_partial(char *name)
+{
+	char output[MAX_PATH_LEN];
+
+	safestrncpy(output, name, MAX_PATH_LEN);
+	strncat(output, ".partial", MAX_PATH_LEN);
+
+	if (!have_access(name, true) || !have_access(output, false))
+		die("[Error] Failed to move \"%s\" to \"%s\"\n", output, name);
+
+	if (rename(output, name) < 0) {
+		die("[Error] REPORT: errno %s\n", strerror(errno));
 	}
 }
 
+/*
+* Creates a directory with the given name, checking permissions and reacts accordingly (bails out or asks user)
 */
 
+int makedir(char *name)
+{
+	if (!have_access(name, false))
+		die("[Error] Don't have access to create %s\n", name);
 
+	if (mkdir(name, 0777)) {
+		if (errno == EEXIST)
+			return 0;
+		die("[Error] Failed to create directory: %s\n", name);
+	}
 
+	return 0;
+}
 
+void redirectlog(char *filename)
+{
+	if (!have_access(filename, true) && !force_flag)
+		die("[Error] Can't overwrite \"%s\" without -f\n");
+
+	if (!freopen(filename, "w+", stderr))
+		die("[Error] freopen\n");
+}
+
+int open_partial(char *filename)
+{
+	int fd;
+	char output[MAX_PATH_LEN];
+
+	memset(output, 0, MAX_PATH_LEN);
+
+	if (strstr(filename, ";?")) {
+		printe("\n[Hint] File on dvd ends in \";?\" (%s)\n", filename);
+		assert(strlen(filename) > 2);
+		safestrncpy(output, filename, strlen(filename)-2);
+	} else
+		safestrncpy(output, filename, MAX_PATH_LEN);
+
+	printe("[Info] Writing to %s \n", output);
+
+	if (!have_access(filename, false))
+		return -1;
+
+	/*append .partial*/
+	strncat(output, ".partial", MAX_PATH_LEN);
+
+	if (!have_access(output, true))
+		return -1;
+
+	fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fd < 0)
+		die("\n[Error] Error opening file %s\n" 
+		    "[Error] Error: %s\n",
+		    filename,
+		    strerror(errno));
+
+	return fd;
+}
 
 
