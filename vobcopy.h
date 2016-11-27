@@ -271,7 +271,7 @@ int open_partial(char *filename);
 /*mirror.c*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd, int block_count, ifo_handle_t *vmg_file);
+	    dvd_reader_t *dvd, int block_count);
 
 #if defined(__APPLE__) && defined(__GNUC__)
 int fdatasync( int value );

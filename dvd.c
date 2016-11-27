@@ -343,7 +343,7 @@ int get_device(char *path, char *device)
 /*         1 if successful and mounted            */
 /* returns <0 if error                            */
 int get_device_on_your_own( char *path, char *device )
-{	/*oyo <- What the hell is that supposed to mean?*/
+{
 #ifdef USE_GETMNTINFO
 	int i, n, dvd_count = 0;
 #ifdef GETMNTINFO_USES_STATFS
@@ -438,90 +438,90 @@ int get_device_on_your_own( char *path, char *device )
 	char *k;
 	/* read the device out of /etc/mtab */
 
-	if ((tmp_streamin = fopen("/etc/mtab", "r"))) {
-		/* strcpy(tmp_path, "iso9660"); */
-		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
-		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin))  {
-			/*if(strstr( tmp_bufferin, tmp_path)) */
-			if (strstr( tmp_bufferin, "iso9660") ||
-			    strstr( tmp_bufferin, "udf")     ||
-			    strstr( tmp_bufferin, "cdrom")   ||
-			    strstr( tmp_bufferin, "dvd")) {
-				dvd_count++; /*count every cd we find */
-				/* extract the device */
-
-				if( ( k = strstr( tmp_bufferin, "/dev/" ) ) == NULL ) {
-					printe("[Error] Weird, no /dev/ entry found in the line where iso9660, udf or cdrom gets mentioned in /etc/mtab\n");
-					dvd_count--;
-					continue;
-				}
-
-				while(isgraph( (int) *(k) )) {
-					device[l] = *(k);
-					if( device[l] == ',' )
-						break;
-					l++;
-					k++;
-				}
-
-				device[l] = '\0';
-				if (isdigit((int)device[l-1])) {
-					if(strstr( device, "hd" ))
-						printe("[Hint] Hmm, the last char in the device path %s is a number.\n", device );
-				}
-
-				/*The syntax of /etc/fstab and mtab seems to be something like this:
-				  Either 
-				  /dev/hdc /cdrom
-				  or, in case of supermount
-				  none /mnt/cdrom supermount ro,dev=/dev/hdc,
-				  Therefore I parse for /dev/ first and take everything up to a blank for the device
-				  and then I locate the first space in this line and after that comes the mount-point
-				*/
-
-				k = strstr( tmp_bufferin, " " );
-				/*traverse the gap*/
-
-				if( isgraph( (int) *(k) ))
-					k++;
-				while(!(isgraph( (int) *(k) ))) 
-					k++;
-
-				/* extract the path the device has been mounted to */
-				l=0;
-
-				while(isgraph( (int) *(k) )) {
-					/* replace escaped ASCII space ... */
-					if (!strncmp(k, "\\040", 4)) {
-                                                   path[l++] = ' '; /* ... with literal space */
-                                                   k+=4;
-					} else {
-						path[l] = *(k);
-						k++;
-						l++;
-					}
-				}
-
-				path[l] = '\0';
-			}
-
-			memset( tmp_bufferin, 0, MAX_STRING * sizeof( char ) );
-			l = 0; /* for the next run
-				* we take the last entry in /etc/mtab since that has been 
-				* mounted the last and we assume that this is the
-				* dvd. 
-				*/
-		}
-
-		fclose( tmp_streamin );
-
-		if(dvd_count == 0) {
-			printe("[Error] There seems to be no cd/dvd mounted. Please do that..\n");
-			return -1;
-		}
-	} else {
+	if (!(tmp_streamin = fopen("/etc/mtab", "r"))) {
 		printe("[Error] Could not read /etc/mtab!");
 		printe("[Error] error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	/* strcpy(tmp_path, "iso9660"); */
+	memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+	while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin))  {
+		/*if(strstr( tmp_bufferin, tmp_path)) */
+		if (strstr( tmp_bufferin, "iso9660") ||
+		    strstr( tmp_bufferin, "udf")     ||
+		    strstr( tmp_bufferin, "cdrom")   ||
+		    strstr( tmp_bufferin, "dvd")) {
+			dvd_count++; /*count every cd we find */
+			/* extract the device */
+
+			if( ( k = strstr( tmp_bufferin, "/dev/" ) ) == NULL ) {
+				printe("[Error] Weird, no /dev/ entry found in the line where iso9660, udf or cdrom gets mentioned in /etc/mtab\n");
+				dvd_count--;
+				continue;
+			}
+
+			while(isgraph( (int) *(k) )) {
+				device[l] = *(k);
+				if( device[l] == ',' )
+					break;
+				l++;
+				k++;
+			}
+
+			device[l] = '\0';
+			if (isdigit((int)device[l-1])) {
+				if(strstr( device, "hd" ))
+					printe("[Hint] Hmm, the last char in the device path %s is a number.\n", device );
+			}
+
+			/*The syntax of /etc/fstab and mtab seems to be something like this:
+			 * Either 
+			 *	/dev/hdc /cdrom
+			 * or, in case of supermount
+			 * none /mnt/cdrom supermount ro,dev=/dev/hdc,
+			 * Therefore I parse for /dev/ first and take everything up to a blank for the device
+			 * and then I locate the first space in this line and after that comes the mount-point
+			*/
+
+			k = strstr( tmp_bufferin, " " );
+			/*traverse the gap*/
+
+			if( isgraph( (int) *(k) ))
+				k++;
+			while(!(isgraph( (int) *(k) ))) 
+				k++;
+
+			/* extract the path the device has been mounted to */
+			l=0;
+
+			while(isgraph( (int) *(k) )) {
+				/* replace escaped ASCII space ... */
+				if (!strncmp(k, "\\040", 4)) {
+                                                  path[l++] = ' '; /* ... with literal space */
+                                                  k+=4;
+				} else {
+					path[l] = *(k);
+					k++;
+					l++;
+				}
+			}
+
+			path[l] = '\0';
+		}
+
+		memset( tmp_bufferin, 0, MAX_STRING * sizeof( char ) );
+		l = 0; /* for the next run
+			* we take the last entry in /etc/mtab since that has been 
+			* mounted the last and we assume that this is the
+			* dvd. 
+			*/
+	}
+
+	fclose( tmp_streamin );
+
+	if(dvd_count == 0) {
+		printe("[Error] There seems to be no cd/dvd mounted. Please do that..\n");
 		return -1;
 	}
 #endif
@@ -629,14 +629,14 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			     */
 }
 
-/*dvdtime2msec, converttime and get_longest_title are copy-paste'd from lsdvd*/
+/*dvdtime2msec and get_longest_title are copy-paste'd from lsdvd*/
 
-int dvdtime2msec(dvd_time_t *dt)
+long dvdtime2msec(dvd_time_t *dt)
 {
+	long   ms;
 	/*Why are PAL and NTSC frame rates are spelled out here, and what's with the -1's*/
 	double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
 	double fps = frames_per_s[(dt->frame_u & 0xc0) >> 6];
-	long   ms;
 
 	/*What are all of these magic numbers are for?*/
 	ms  = (((dt->hour &   0xf0) >> 3) * 5 + (dt->hour   & 0x0f)) * 3600000;
@@ -649,98 +649,60 @@ int dvdtime2msec(dvd_time_t *dt)
 	return ms;
 }
 
-void converttime(playback_time_t *pt, dvd_time_t *dt)
-{
-	/*Why are PAL and NTSC frame rates are spelled out here, and what's with the -1's?*/
-	double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
-	double fps = frames_per_s[(dt->frame_u & 0xc0) >> 6];
-
-	/*What are all of these magic numbers are for?*/
-	pt->usec   = pt->usec   + ((dt->frame_u & 0x30) >> 3) * 5 + (dt->frame_u & 0x0f) * 1000.0 / fps;
-	pt->second = pt->second + ((dt->second  & 0xf0) >> 3) * 5 + (dt->second  & 0x0f);
-	pt->minute = pt->minute + ((dt->minute  & 0xf0) >> 3) * 5 + (dt->minute  & 0x0f);
-	pt->hour   = pt->hour   + ((dt->hour    & 0xf0) >> 3) * 5 + (dt->hour    & 0x0f);
-
-	if (pt->usec >= 1000) {
-		pt->usec -= 1000;
-		pt->second++;
-	}
-
-	if (pt->second >= 60) {
-		pt->second -= 60;
-		pt->minute++;
-	}
-
-	if (pt->minute > 59) {
-		pt->minute -= 60;
-		pt->hour++;
-	}
-}
-
-
+/*It gets the ID for the title with the longest time*/
 int get_longest_title(dvd_reader_t *dvd)
 {
-	/*dvd_reader_t *dvd;*/
-	ifo_handle_t *ifo_zero, **ifo; 
-	pgcit_t *vts_pgcit;
-	vtsi_mat_t *vtsi_mat;
-	vmgi_mat_t *vmgi_mat;
+	int i;
+	long longest_time;
+	int longest_title;
+
+	/*intermediary variables for readability*/
 	pgc_t *pgc;
-	int i, j, titles, vts_ttn, title_set_nr;
-	int max_length = 0, max_track = 0;
-	struct dvd_info dvd_info;
+	int vts_ttn;
+	int title_count;
+	int title_set_nr;
+	long current_time;
+	ifo_handle_t *ifo;
+	pgcit_t *vts_pgcit;
+	int pgci_srp_offset;
+	ifo_handle_t *master_ifo;
 
-
-	ifo_zero = ifoOpen(dvd, 0);
-	if (!ifo_zero) {
+	master_ifo = ifoOpen(dvd, 0);
+	if (!master_ifo) {
 		printe("Can't open main ifo!\n");
 		return 3;
 	}
 
-	ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
+	longest_time  = 0;
+	longest_title = 0;
+	title_count   = master_ifo->tt_srpt->nr_of_srpts;
+	for (i = 0; i < title_count; i++) {
+		title_set_nr = master_ifo->tt_srpt->title[i].title_set_nr;
 
-	for (i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) {
-		ifo[i] = ifoOpen(dvd, i);
-		if (!ifo[i]) {
+		ifo = ifoOpen(dvd, title_set_nr);
+		if (!ifo) {
+			ifoClose(master_ifo);
 			printe("Can't open ifo %d!\n", i);
 			return 4;
 		}
-	}
-
-	titles = ifo_zero->tt_srpt->nr_of_srpts;
-
-	vmgi_mat = ifo_zero->vmgi_mat;
-
-	/* dvd_info.discinfo.device = dvd_device; */
-	/* dvd_info.discinfo.disc_title = has_title ? "unknown" : title; */
-	dvd_info.discinfo.vmg_id =  vmgi_mat->vmg_identifier;
-	dvd_info.discinfo.provider_id = vmgi_mat->provider_identifier;
-
-	dvd_info.title_count = titles;
-	dvd_info.titles = calloc(titles, sizeof(*dvd_info.titles));
-
-	for (j=0; j < titles; j++) {
 		/*GENERAL*/
-		if (ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat) {
-			vtsi_mat   = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vtsi_mat;
-			vts_pgcit  = ifo[ifo_zero->tt_srpt->title[j].title_set_nr]->vts_pgcit;
-			vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
-			vmgi_mat = ifo_zero->vmgi_mat;
-			title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
-			pgc = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
+		if (ifo->vtsi_mat) {
+			vts_pgcit       = ifo->vts_pgcit;
+			vts_ttn         = master_ifo->tt_srpt->title[i].vts_ttn;
+			pgci_srp_offset = ifo->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1;
+			pgc             = vts_pgcit->pgci_srp[pgci_srp_offset].pgc;
 
-			dvd_info.titles[j].general.length = dvdtime2msec(&pgc->playback_time)/1000.0;
-			converttime(&dvd_info.titles[j].general.playback_time, &pgc->playback_time);
-			dvd_info.titles[j].general.vts_id = vtsi_mat->vts_identifier;
-				
-			if (dvdtime2msec(&pgc->playback_time) > max_length) {
-				max_length = dvdtime2msec(&pgc->playback_time);
-				max_track = j+1;
+			current_time = dvdtime2msec(&pgc->playback_time);
+			if (current_time > longest_time) {
+				longest_time  = current_time;
+				longest_title = i+1;
 			}
 		}
+		ifoClose(ifo);
 	}
 
-	return max_track;
+	ifoClose(master_ifo);
+	return longest_title;
 }
 
 

@@ -39,7 +39,7 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd, int block_count, ifo_handle_t *vmg_file)
+	    dvd_reader_t *dvd, int block_count)
 {
 	DIR *dir;
 	struct dirent *directory;
@@ -361,7 +361,6 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		}
 	}
 
-	ifoClose(vmg_file);
 	DVDCloseFile(dvd_file);
 	DVDClose(dvd);
 	if (overall_skipped_blocks > 0)

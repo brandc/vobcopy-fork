@@ -61,8 +61,6 @@ bool overwrite_flag = false;
 bool overwrite_all_flag = false;
 int overall_skipped_blocks = 0;
 
-int get_longest_title(dvd_reader_t *dvd);
-
 /* --------------------------------------------------------------------------*/
 /* MAIN */
 /* --------------------------------------------------------------------------*/
@@ -96,7 +94,7 @@ int main(int argc, char *argv[])
 
 	int dvd_count           = 0;
 	int paths_taken         = 0;
-	int fast_factor         = 1;
+	int fast_factor         = 1; /*What does this magic "1" mean?*/
 	int options_char        = 0;
 	int watchdog_minutes    = 0;
 	int alternate_dir_count = 0;
@@ -111,6 +109,7 @@ int main(int argc, char *argv[])
 	off_t max_filesize_in_blocks_summed = 0;
 	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
 
+	/*Boolean flags*/
 	bool mounted                  = false;
 	bool cut_flag                 = false;
 	bool info_flag                = false;
@@ -127,6 +126,22 @@ int main(int argc, char *argv[])
 	bool provided_input_dir_flag  = false;
 	bool provided_output_dir_flag = false;
 
+	/*########################################################################
+	 * The new part taken from play-title.c
+	 *########################################################################*/
+	int chapid        = 0;
+	int titleid       = 2; /*What does this magic "2" mean?*/
+	int angle         = 0;
+	int sum_angles    = 0;
+	int sum_chapters  = 0;
+	int most_chapters = 0;
+	tt_srpt_t    *tt_srpt  = NULL;
+	ifo_handle_t *vmg_file = NULL;
+
+	/*Zero buffers*/
+	memset(dvd_name, 0, sizeof(dvd_name));
+	memset(provided_dvd_name, 0, sizeof(provided_dvd_name));
+
 	/*Allocating buffers*/
 	pwd                 = palloc(sizeof(char), MAX_PATH_LEN);
 	name                = palloc(sizeof(char), MAX_PATH_LEN);
@@ -142,16 +157,6 @@ int main(int argc, char *argv[])
 	for (i = 0; i < 4; i++)
 		alternate_output_dir[i] = palloc(sizeof(char), MAX_PATH_LEN);
 	
-
-	/*########################################################################
-	 * The new part taken from play-title.c
-	 *########################################################################*/
-	int titleid = 2, chapid = 0;
-	int angle = 0, sum_chapters = 0;
-	int sum_angles = 0, most_chapters = 0;
-	ifo_handle_t *vmg_file;
-	tt_srpt_t *tt_srpt;
-	ifo_handle_t *vts_file;
 
 	/**
 	 *getopt-long
@@ -205,7 +210,7 @@ int main(int argc, char *argv[])
 					   long_options, &option_index);
 #else
 		options_char = getopt(argc, argv,
-			   "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-");
+				      "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-");
 #endif
 
 		if (options_char == -1)
@@ -246,13 +251,13 @@ int main(int argc, char *argv[])
 			cut_flag = true;
 			break;
 
-		case 'f':	/*force flag, some options like -o, -1..-4 set this
-				   themselves */
+		case 'f':	/*force flag, some options like -o, -1..-4 set this themselves */
 			force_flag = true;
 			break;
 
 		case 'h':	/* good 'ol help */
 			usage(argv[0]);
+			goto cleanup;
 			break;
 
 		case 'i':	/*input dir, if the automatic needs to be overridden */
@@ -415,24 +420,27 @@ int main(int argc, char *argv[])
 			break;
 		case 'V':	/*version number output */
 			fprintf(stderr, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
-			return 0;
+			goto cleanup;
 			break;
 
 		case '?':	/*probably never gets here, the others should catch it */
 			printe("[Error] Wrong option.\n");
 			usage(argv[0]);
+			goto cleanup;
 			break;
 
 #ifndef HAVE_GETOPT_LONG
 		case '-':	/* no getopt, complain */
 			printe("[Error] %s was compiled without support for long options.\n", argv[0]);
 			usage(argv[0]);
+			goto cleanup;
 			break;
 #endif
 
 		default: /*probably never gets here, the others should catch it */
 			printe("[Error] Wrong option.\n");
 			usage(argv[0]);
+			goto cleanup;
 		}
 	} /*End of optopt while loop*/
 
@@ -441,13 +449,11 @@ int main(int argc, char *argv[])
 
 
 	/*get the current working directory */
-	if (provided_output_dir_flag) {
+	if (provided_output_dir_flag)
 		strcpy(pwd, provided_output_dir);
-	} else {
-		if (getcwd(pwd, MAX_PATH_LEN) == NULL)
-			die("\n[Error] Hmm, the path length of your current directory is really large (>255)\n",
-				"[Hint] Change to a path with shorter path length pleeeease ;-)\n");
-	}
+	else if (!getcwd(pwd, MAX_PATH_LEN))
+		die("\n[Error] Hmm, the path length of your current directory is really large (>255)\n" \
+		    "[Hint] Change to a path with shorter path length pleeeease ;-)\n");
 
 	add_end_slash(pwd);
 
@@ -563,6 +569,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	tt_srpt = vmg_file->tt_srpt;
+	ifoClose(vmg_file);
 
 	/**
 	 * Get the title with the most chapters since this is probably the main part
@@ -588,7 +595,6 @@ int main(int argc, char *argv[])
 	printe("[Info] There are %d titles on this DVD.\n", tt_srpt->nr_of_srpts);
 	if (titleid <= 0 || (titleid - 1) >= tt_srpt->nr_of_srpts) {
 		printe("[Error] Invalid title %d.\n", titleid);
-		ifoClose(vmg_file);
 		DVDClose(dvd);
 		return -1;
 	}
@@ -610,7 +616,6 @@ int main(int argc, char *argv[])
 
 	if (chapid < 0 || chapid >= tt_srpt->title[titleid - 1].nr_of_ptts) {
 		printe("[Error] Invalid chapter %d\n", chapid + 1);
-		ifoClose(vmg_file);
 		DVDClose(dvd);
 		return -1;
 	}
@@ -624,7 +629,6 @@ int main(int argc, char *argv[])
 	printe("\n[Info] There are %d angles on this dvd.\n", sum_angles);
 	if (angle < 0 || angle >= tt_srpt->title[titleid - 1].nr_of_angles) {
 		printe("[Error] Invalid angle %d\n", angle + 1);
-		ifoClose(vmg_file);
 		DVDClose(dvd);
 		return -1;
 	}
@@ -683,7 +687,7 @@ int main(int argc, char *argv[])
 		mirror(dvd_name, provided_dvd_name_flag, provided_dvd_name,
 		       pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
-		       dvd, block_count, vmg_file);
+		       dvd, block_count);
 
 		goto cleanup;
 	}
@@ -702,22 +706,10 @@ int main(int argc, char *argv[])
 		printe("\n[Info] DVD-name: %s\n", dvd_name);
 		printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
 		printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
-		ifoClose(vmg_file);
 		DVDCloseFile(dvd_file);
 		DVDClose(dvd);
 		/*hope all are closed now... */
 		exit(0);
-	}
-
-	/**
-	 * Load the VTS information for the title set our title is in.
-	 */
-	vts_file = ifoOpen(dvd, tt_srpt->title[titleid - 1].title_set_nr);
-	if (!vts_file) {
-		printe("[Error] Can't open the title %d info file.\n", tt_srpt->title[titleid - 1].title_set_nr);
-		ifoClose(vmg_file);
-		DVDClose(dvd);
-		return -1;
 	}
 
 	/**
@@ -726,8 +718,6 @@ int main(int argc, char *argv[])
 	dvd_file = DVDOpenFile(dvd, tt_srpt->title[titleid - 1].title_set_nr, DVD_READ_TITLE_VOBS);
 	if (!dvd_file) {
 		printe("[Error] Can't open title VOBS (VTS_%02d_1.VOB).\n", tt_srpt->title[titleid - 1].title_set_nr);
-		ifoClose(vts_file);
-		ifoClose(vmg_file);
 		DVDClose(dvd);
 		return -1;
 	}
@@ -761,8 +751,6 @@ int main(int argc, char *argv[])
 		/* Should be the *disk* size here, right? -- lb */
 		printe("[Info]  Vobs size: %.0f MB\n", (float)(disk_vob_size / MEGA));
 
-		ifoClose(vts_file);
-		ifoClose(vmg_file);
 		DVDCloseFile(dvd_file);
 		DVDClose(dvd);
 		/*hope all are closed now... */
@@ -913,7 +901,8 @@ int main(int argc, char *argv[])
 
 			/*TODO: this skipping here writes too few bytes to the output */
 
-			if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
+			ssize_t write_ret;
+			if ((write_ret = write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks)) < 0)
 				die("\n[Error] Write() error\n"
 				       "[Error] It's possible that you try to write files\n"
 				       "[Error] greater than 2GB to filesystem which\n"
@@ -1023,10 +1012,6 @@ int main(int argc, char *argv[])
 			free(alternate_output_dir[i]);
 		free(alternate_output_dir);
 
-		if (vts_file)
-			ifoClose(vts_file);
-		if (vmg_file)
-			ifoClose(vmg_file);
 		if (dvd_file)
 			DVDCloseFile(dvd_file);
 		if (dvd)
@@ -1086,7 +1071,7 @@ int make_output_path(char *pwd, char *name, int get_dvd_name_return,
 
 void usage(char *program_name)
 {
-	die("Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n"
+	printe( "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n"
 		"\nUsage: %s \n"
 		"if you want the main feature (title with most chapters) you don't need _any_ options!\n"
 		"Options:\n"
@@ -1118,6 +1103,10 @@ void usage(char *program_name)
 }
 
 /* from play_title */
+void play_title(void)
+{
+
+}
 /**
  * Returns true if the pack is a NAV pack.  This check is clearly insufficient,
  * and sometimes we incorrectly think that valid other packs are NAV packs.  I
