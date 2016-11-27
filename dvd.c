@@ -112,7 +112,6 @@ int get_dvd_name(const char *device, char *title)
  */
 int get_device(char *path, char *device)
 {
-
 #if ( !defined( __sun ) )
 	FILE *tmp_streamin;
 	char  tmp_bufferin[ MAX_STRING ];
@@ -337,32 +336,35 @@ int get_device(char *path, char *device)
 }
 
 
-/* function to get the device WITHOUT a given pathname */
-/* therefore called oyo - on your own */
-/* returns 0 if successful and NOT mounted        */
-/*         1 if successful and mounted            */
-/* returns <0 if error                            */
+/* function to get the device WITHOUT a given pathname
+ * int get_device_on_your_own( char *path, char *device );
+ * therefore called oyo - on your own
+ * 	returns 0 if successful and NOT mounted
+ *      	1 if successful and mounted
+ *	returns <0 if error
+ */
+
+#ifdef USE_GETMNTINFO
 int get_device_on_your_own( char *path, char *device )
 {
-#ifdef USE_GETMNTINFO
 	int i, n, dvd_count = 0;
-#ifdef GETMNTINFO_USES_STATFS
-	struct statfs *mntbuf;
-#else
-	struct statvfs *mntbuf;
-#endif
+#	ifdef GETMNTINFO_USES_STATFS
+		struct statfs *mntbuf;
+#	else
+		struct statvfs *mntbuf;
+#	endif
 
 	if((n = getmntinfo(&mntbuf, 0 )) > 0) {
 		for(i = 0; i < n; i++) {
 			if( strstr( mntbuf[i].f_fstypename, "cd9660" ) || strstr( mntbuf[i].f_fstypename, "udf" ) ) {
 				dvd_count++;
 				strcpy( path, mntbuf[i].f_mntonname );
-#if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
-				strcat(device, mntbuf[i].f_mntfromname);
-#else
-				strcpy(device, "/dev/r");
-				strcat(device, mntbuf[i].f_mntfromname + 5);
-#endif
+#				if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
+					strcat(device, mntbuf[i].f_mntfromname);
+#				else
+					strcpy(device, "/dev/r");
+					strcat(device, mntbuf[i].f_mntfromname + 5);
+#				endif
 			}
 		}
 
@@ -376,8 +378,12 @@ int get_device_on_your_own( char *path, char *device )
 		return -1;
 	}
 
-#elif ( defined( __sun ) )
+	return dvd_count;
+}
 
+#elif ( defined( __sun ) )
+int get_device_on_your_own( char *path, char *device )
+{
 	/* Completely rewritten search of a mounted DVD on Solaris, much
 	cleaner. No more parsing of strings -- lb */
 
@@ -428,8 +434,12 @@ int get_device_on_your_own( char *path, char *device )
 	strcpy(path,   mountEntry.mnt_mountp);
 	strcpy(device, mountEntry.mnt_special);
 
-#else /* End ifdef(__sun) */
+	return dvd_count;
+}
 
+#else /* End ifdef(__sun) */
+int get_device_on_your_own( char *path, char *device )
+{
 	FILE *tmp_streamin;
 	char  tmp_bufferin[MAX_STRING];
 /*	char  tmp_path[20];*/
@@ -520,13 +530,13 @@ int get_device_on_your_own( char *path, char *device )
 
 	fclose( tmp_streamin );
 
-	if(dvd_count == 0) {
+	if (!dvd_count) {
 		printe("[Error] There seems to be no cd/dvd mounted. Please do that..\n");
 		return -1;
 	}
-#endif
 	return dvd_count;
 }
+#endif
 
 
 
@@ -559,7 +569,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 	sprintf( stat_path, "%s_1.vob", path_to_vobs );
 
 	/*check if this path is correct*/
-	if ((tmp_streamin1 = fopen(stat_path, "r")) != NULL) {
+	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
 		fclose ( tmp_streamin1 );
 		subvob = 1;
 		while(!stat( stat_path, &buf )) {
@@ -575,7 +585,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 	sprintf( stat_path, "%s_1.VOB", path_to_vobs1 );
 
 	/*check if this path is correct */
-	if ((tmp_streamin1 = fopen(stat_path, "r")) != NULL) {
+	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
 		fclose ( tmp_streamin1 );
 		subvob = 1;
 		while(!stat(stat_path, &buf)) {
@@ -592,7 +602,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 	sprintf( stat_path, "%s_1.VOB", path_to_vobs2 );
 
 	/*check if this path is correct */
-	if((tmp_streamin1 = fopen(stat_path, "r")) != NULL) {
+	if(!(tmp_streamin1 = fopen(stat_path, "r"))) {
 		fclose ( tmp_streamin1 );
 		subvob = 1;
 		while(!stat(stat_path, &buf)) {
@@ -609,7 +619,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 	sprintf( stat_path, "%s_1.vob", path_to_vobs3 );
 
 	/*check if this path is correct */
-	if ((tmp_streamin1 = fopen(stat_path, "r")) != NULL) {
+	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
 		fclose ( tmp_streamin1 );
 		subvob = 1;
 		while(!stat(stat_path, &buf)) {
@@ -663,7 +673,6 @@ int get_longest_title(dvd_reader_t *dvd)
 	int title_set_nr;
 	long current_time;
 	ifo_handle_t *ifo;
-	pgcit_t *vts_pgcit;
 	int pgci_srp_offset;
 	ifo_handle_t *master_ifo;
 
@@ -687,10 +696,9 @@ int get_longest_title(dvd_reader_t *dvd)
 		}
 		/*GENERAL*/
 		if (ifo->vtsi_mat) {
-			vts_pgcit       = ifo->vts_pgcit;
 			vts_ttn         = master_ifo->tt_srpt->title[i].vts_ttn;
 			pgci_srp_offset = ifo->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1;
-			pgc             = vts_pgcit->pgci_srp[pgci_srp_offset].pgc;
+			pgc             = ifo->vts_pgcit->pgci_srp[pgci_srp_offset].pgc;
 
 			current_time = dvdtime2msec(&pgc->playback_time);
 			if (current_time > longest_time) {
