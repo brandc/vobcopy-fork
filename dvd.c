@@ -22,14 +22,14 @@
  * returns 0 on success or a value < 0 on error
  */
 #if defined(__sun)
-int get_dvd_name(const char *device, char *title)
+bool get_dvd_name(const char *device, char *title)
 {
 	/* title is actually in the device name */
 	char *new_title;
 
 	new_title = strstr(device, "d0/");
 	if (new_title)
-		return -1;
+		return false;
 	new_title += strlen("d0/");
 
 	strncpy(title, new_title, sizeof(title)-1);
@@ -37,10 +37,10 @@ int get_dvd_name(const char *device, char *title)
 	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
-	return 0;
+	return true;
 }
 #else /* !defined(__sun) */
-int get_dvd_name(const char *device, char *title)
+bool get_dvd_name(const char *device, char *title)
 {
 	int fd;
 	size_t last;
@@ -82,7 +82,7 @@ int get_dvd_name(const char *device, char *title)
 	/*Replace the spaces with underscores*/
 	strrepl(title, ' ', '_');
 
-	return 0;
+	return true;
 
 	read_error:
 		if (fd > 0)
@@ -90,7 +90,7 @@ int get_dvd_name(const char *device, char *title)
 		printe("[Error] something wrong in dvd_name getting - please specify path as /cdrom or /dvd (mount point) or use -t\n");
 		printe("[Error] only read %d bytes instead of 2048\n", bytes_read);
 		printe("[Error] Error: %s\n", strerror(errno));
-		return -1;
+		return false;
 }
 #endif /* !defined(__sun) */
 

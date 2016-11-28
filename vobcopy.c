@@ -98,7 +98,6 @@ int main(int argc, char *argv[])
 	int options_char        = 0;
 	int watchdog_minutes    = 0;
 	int alternate_dir_count = 0;
-	int get_dvd_name_return = 0;
 
 	off_t offset                        = 0;
 	off_t pwd_free                      = 0;
@@ -261,9 +260,6 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'i':	/*input dir, if the automatic needs to be overridden */
-			if (isdigit((int)*optarg))
-				die("[Error] Erm, the number comes behind -n ... \n");
-
 			printe("[Hint] You use -i. Normally this is not necessary, vobcopy finds the input dir by itself." 
 			       "This option is only there if vobcopy makes trouble.\n");
 			printe("[Hint] If vobcopy makes trouble, please mail me so that I can fix this (robos@muon.de). Thanks\n");
@@ -444,8 +440,7 @@ int main(int argc, char *argv[])
 	if (provided_output_dir_flag)
 		strcpy(pwd, provided_output_dir);
 	else if (!getcwd(pwd, MAX_PATH_LEN)) {
-		printe("\n[Error] Hmm, the path length of your current directory is really large (>255)\n" \
-		       "[Hint] Change to a path with shorter path length pleeeease ;-)\n");
+		printe("\n[Error] getcwd failed with: %s\n", strerror(errno));
 		goto end;
 	}
 
@@ -548,8 +543,10 @@ int main(int argc, char *argv[])
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
 		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
 	}
-	else
-		get_dvd_name_return = get_dvd_name(dvd_path, dvd_name);
+	else /*Error message is printed out by the function.*/
+		if (!get_dvd_name(dvd_path, dvd_name))
+			goto end;
+			
 
 	printe("[Info] Name of the dvd: %s\n", dvd_name);
 
@@ -673,11 +670,33 @@ int main(int argc, char *argv[])
 		alarm(watchdog_minutes * 60);
 	}
 
-	if ((info_flag && vob_size != 0) || mirror_flag) {
-		printe("\n[Info] DVD-name: %s\n", dvd_name);
-		printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
-		printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
-		goto end;
+	printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
+	printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
+
+	/* now the actual check if enough space is free */
+	if (pwd_free < vob_size) {
+		if (!force_flag)
+			printe("\n[Error] Hmm, better change to a dir with enough space left or call with -f (force) \n");
+		if (pwd_free == 0 && !force_flag) {
+			printe("[Error] Hmm, statfs (statvfs) seems not to work on that directory. \n");
+			printe("[Hint] Nevertheless, do you want vobcopy to continue [y] or do you want to check for \n");
+			printe("[Hint] enough space first [q]?\n");
+
+			op = get_option("[Error] Please choose [y] to continue or [n] to quit: ", "ynq");
+
+			if (op == 'y') {
+				force_flag = true;
+				if (verbosity_level >= 1)
+					printe("[Info] y pressed - force write\n");
+			} else if (op == 'n' || op == 'q') {
+				if (verbosity_level >= 1)
+					printe("[Info] n/q pressed\n");
+				goto end;
+			}
+		}
+
+		if (!force_flag)
+			goto end;
 	}
 
 	if (mirror_flag) {
@@ -735,38 +754,7 @@ int main(int argc, char *argv[])
 		/* Should be the *disk* size here, right? -- lb */
 		printe("[Info]  Vobs size: %.0f MB\n", (float)(disk_vob_size / MEGA));
 
-		DVDCloseFile(dvd_file);
-		DVDClose(dvd);
-		/*hope all are closed now... */
-		exit(0);
-	}
-
-	/* now the actual check if enough space is free */
-	if (pwd_free < vob_size) {
-		printe("\n[Info]  Disk free: %.0f MB", (float)pwd_free / (float)MEGA);
-		printe("\n[Info]  Vobs size: %.0f MB", (float)vob_size / (float)MEGA);
-		if (!force_flag)
-			printe("\n[Error] Hmm, better change to a dir with enough space left or call with -f (force) \n");
-		if (pwd_free == 0 && !force_flag) {
-			printe("[Error] Hmm, statfs (statvfs) seems not to work on that directory. \n");
-			printe("[Hint] Nevertheless, do you want vobcopy to continue [y] or do you want to check for \n");
-			printe("[Hint] enough space first [q]?\n");
-
-			op = get_option("[Error] Please choose [y] to continue or [n] to quit: ", "ynq");
-
-			if (op == 'y') {
-				force_flag = true;
-				if (verbosity_level >= 1)
-					printe("[Info] y pressed - force write\n");
-			} else if (op == 'n' || op == 'q') {
-				if (verbosity_level >= 1)
-					printe("[Info] n/q pressed\n");
-				exit(1);
-			}
-		}
-
-		if (!force_flag)
-			exit(1);
+		goto end;
 	}
 
 	/*********************
@@ -795,9 +783,9 @@ int main(int argc, char *argv[])
 				if (verbosity_level > 1)
 					printe("[Info] Free space for -o dir: %.0f\n", (float)free_space);
 				if (large_file_flag)
-					make_output_path(pwd, name, get_dvd_name_return, dvd_name, titleid, -1);
+					make_output_path(pwd, name, dvd_name, titleid, -1);
 				else
-					make_output_path(pwd, name, get_dvd_name_return, dvd_name, titleid, partcount);
+					make_output_path(pwd, name, dvd_name, titleid, partcount);
 			} else {
 				for (i = 1; i < alternate_dir_count; i++) {
 					if (paths_taken == i) {
@@ -807,9 +795,9 @@ int main(int argc, char *argv[])
 						if (verbosity_level > 1)
 							printe("[Info] Free space for -%i dir: %.0f\n", i, (float)free_space);
 						if (large_file_flag)
-							make_output_path(alternate_output_dir[i - 1], name, get_dvd_name_return, dvd_name, titleid, -1);
+							make_output_path(alternate_output_dir[i - 1], name, dvd_name, titleid, -1);
 						else
-							make_output_path(alternate_output_dir[i - 1], name, get_dvd_name_return, dvd_name, titleid, partcount);
+							make_output_path(alternate_output_dir[i - 1], name, dvd_name, titleid, partcount);
 						/*alternate_dir_count--;*/
 					}
 				}
@@ -1031,8 +1019,7 @@ int add_end_slash(char *path)
  * this function concatenates the given information into a path name
  */
 
-int make_output_path(char *pwd, char *name, int get_dvd_name_return,
-		     char *dvd_name, int titleid, int partcount)
+int make_output_path(char *pwd, char *name, char *dvd_name, int titleid, int partcount)
 {
 	char temp[5];
 	safestrncpy(name, pwd, MAX_PATH_LEN);

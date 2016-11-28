@@ -53,12 +53,6 @@ void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	dvd_file_t *dvd_file = NULL;
 	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
 
-	if (!((force_flag || pwd_free > disk_vob_size) && alternate_dir_count < 2)) {
-		printe("[Error] Not enough free space on the destination dir. Please choose another one or -f\n"
-		       "[Error] or dirs behind -1, -2 ... are NOT allowed with -m!\n");
-		return;
-	}
-
 	/* no dirs behind -1, -2 ... since its all in one dir */
 	char video_ts_dir[MAX_PATH_LEN];
 	char number[8];
