@@ -670,6 +670,7 @@ int main(int argc, char *argv[])
 		alarm(watchdog_minutes * 60);
 	}
 
+	/*Let the user know the amount of space available*/
 	printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
 	printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
 
@@ -746,15 +747,6 @@ int main(int argc, char *argv[])
 			(long unsigned int)vob_size,
 			(long unsigned int)((off_t) (file_size_in_blocks) *
 					    (off_t) DVD_VIDEO_LB_LEN));
-	}
-
-	if (info_flag) {
-		printe("\n[Info] DVD-name: %s\n", dvd_name);
-		printe("[Info]  Disk free: %.0f MB\n", (float)(pwd_free / MEGA));
-		/* Should be the *disk* size here, right? -- lb */
-		printe("[Info]  Vobs size: %.0f MB\n", (float)(disk_vob_size / MEGA));
-
-		goto end;
 	}
 
 	/*********************
@@ -871,17 +863,8 @@ int main(int argc, char *argv[])
 					skipped_blocks,
 					offset);
 
-			/*TODO: this skipping here writes too few bytes to the output */
-
-			ssize_t write_ret;
-			if ((write_ret = write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks)) < 0)
-				die("\n[Error] Write() error\n"
-				       "[Error] It's possible that you try to write files\n"
-				       "[Error] greater than 2GB to filesystem which\n"
-				       "[Error] doesn't support it? (try without -l)\n"
-				       "[Error] Error: %s\n",
-				       strerror(errno)
-				);
+			if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
+				die("\n[Error] write error: %s\n", strerror(errno));
 
 			/*this is for people who report that it takes vobcopy ages to copy something */
 			/* TODO */
@@ -1089,57 +1072,55 @@ int is_nav_pack(unsigned char *buffer)
 * Check the time determine whether a new progress line should be output (once per second)
 */
 
-int progressUpdate(int starttime, int cur, int tot, int force)
+void progressUpdate(int starttime, int cur, int tot, int force)
 {
 	static int progress_time = 0;
 
-	if (progress_time == 0 || progress_time != time(NULL) || force) {
-		int barLen, barChar, numChars, timeSoFar, minsLeft, secsLeft,
-		    ctr, cols;
-		float percentComplete, percentLeft, timePerPercent;
-		int curtime, timeLeft;
-		struct winsize ws;
+	if (progress_time && (progress_time == time(NULL)) && (!force))
+		return;
 
-		ioctl(0, TIOCGWINSZ, &ws);
-		cols = ws.ws_col - 1;
+	int barLen, barChar, numChars, timeSoFar, minsLeft, secsLeft, ctr, cols;
+	float percentComplete, percentLeft, timePerPercent;
+	int curtime, timeLeft;
+	struct winsize ws;
 
-		progress_time = time(NULL);
-		curtime = time(NULL);
+	ioctl(0, TIOCGWINSZ, &ws);
+	cols = ws.ws_col - 1;
 
-		printf("\r");
-		/*calc it this way so it's easy to change later */
-		/*2 for brackets, 1 for space, 5 for percent complete, 1 for space, 6 for time left, 1 for space, 1 for 100.0%*/
-		barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1;
-		barChar = tot / barLen;
-		percentComplete = (float)((float)cur / (float)tot * 100.0);
-		percentLeft = 100 - percentComplete;
-		numChars = cur / barChar;
+	progress_time = time(NULL);
+	curtime = time(NULL);
 
-		/*guess remaining time */
-		timeSoFar = curtime - starttime;
-		if (percentComplete == 0)
-			timePerPercent = 0;
-		else
-			timePerPercent = (float)(timeSoFar / percentComplete);
+	printf("\r");
+	/*calc it this way so it's easy to change later */
+	/*2 for brackets, 1 for space, 5 for percent complete, 1 for space, 6 for time left, 1 for space, 1 for 100.0%*/
+	barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1;
+	barChar = tot / barLen;
+	percentComplete = (float)((float)cur / (float)tot * 100.f);
+	percentLeft = 100 - percentComplete;
+	numChars = cur / barChar;
 
-		timeLeft = timePerPercent * percentLeft;
-		minsLeft = (int)(timeLeft / 60);
-		secsLeft = (int)(timeLeft % 60);
+	/*guess remaining time */
+	timeSoFar = curtime - starttime;
+	if (percentComplete == 0)
+		timePerPercent = 0;
+	else
+		timePerPercent = (float)(timeSoFar / percentComplete);
 
-		printf("[");
-		for (ctr = 0; ctr < numChars - 1; ctr++) {
-			printf("=");
-		}
-		printf("|");
-		for (ctr = numChars; ctr < barLen; ctr++) {
-			printf(" ");
-		}
-		printf("] ");
-		printf("%6.1f%% %02d:%02d ", percentComplete, minsLeft, secsLeft);
-		fflush(stdout);
-	}
+	timeLeft = timePerPercent * percentLeft;
+	minsLeft = (int)(timeLeft / 60);
+	secsLeft = (int)(timeLeft % 60);
 
-	return (0);
+	printf("[");
+	for (ctr = 0; ctr < numChars - 1; ctr++)
+		printf("=");
+
+	printf("|");
+	for (ctr = numChars; ctr < barLen; ctr++)
+		printf(" ");
+
+	printf("] ");
+	printf("%6.1f%% %02d:%02d ", percentComplete, minsLeft, secsLeft);
+	fflush(stdout);
 }
 
 void set_signal_handlers(void)
@@ -1177,19 +1158,3 @@ int fdatasync(int value)
 	return 0;
 }
 #endif
-
-/*
-* Check the time determine whether a new progress line should be output (once per second)
-*/
-
-int check_progress(void)
-{
-	static int progress_time = 0;
-
-	if (!progress_time || progress_time != time(NULL)) {
-		progress_time = time(NULL);
-		return 1;
-	}
-
-	return 0;
-}

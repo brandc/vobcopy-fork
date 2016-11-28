@@ -235,15 +235,14 @@ bool overwrite_all_flag;
 
 void usage(char *);
 int add_end_slash( char * );
-int make_output_path( char *, char *, int, char *, int, int );
+int make_output_path( char *, char *, char *, int, int );
 int is_nav_pack( unsigned char *buffer );
 int makedir( char *name );
 void set_signal_handlers();
 void watchdog_handler( int signal );
 void shutdown_handler( int signal );
 char *safestrncpy(char *dest, const char *src, size_t n);
-int check_progress( void ); /* this can be removed because the one below supersedes it */
-int progressUpdate( int starttime, int cur, int tot, int force );
+void progressUpdate( int starttime, int cur, int tot, int force );
 
 /*utils.c*/
 extern const long long DVD_SECTOR_SIZE;

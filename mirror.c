@@ -174,11 +174,11 @@ void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 			/*this copies the data to the new file */
 			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
 				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
-				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) == -1) {
+				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0) {
 					printe("\n[Error] Error writing to %s \n"
-					    "[Error] Error: %s\n",
-					    output_file,
-					    strerror(errno)
+					       "[Error] Error: %s\n",
+					       output_file,
+					       strerror(errno)
 					);
 					if (dvd_file)
 						DVDCloseFile(dvd_file);
