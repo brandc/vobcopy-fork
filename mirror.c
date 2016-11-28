@@ -21,11 +21,7 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
-
 /*B. Watson*/
-#include <stdbool.h>
-#include <sys/types.h>
 #include "vobcopy.h"
 
 extern char *name;

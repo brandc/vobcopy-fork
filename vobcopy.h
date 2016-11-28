@@ -23,11 +23,12 @@
 
 #define VERSION "1.2.0"
 
-#if defined(__GLIBC__)
-#	define _GNU_SOURCE
-#endif
-
-#include <stdbool.h>
+/*There were a bit of hacks selectively doing this, might as well just not use stdbool.h*/
+typedef enum 
+{
+	false=0,
+	true=1
+}bool;
 
 #if defined( __gettext__ )
 #	include <locale.h>
@@ -271,6 +272,7 @@ long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
 char *strcasestr(const char *haystack, const char *needle);
 int open_partial(char *filename);
+struct dirent *find_dir_entry(DIR *dir, char *name);
 
 /*mirror.c*/
 void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
