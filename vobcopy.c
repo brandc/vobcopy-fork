@@ -338,14 +338,9 @@ int main(int argc, char *argv[])
 		case 't':	/*provided title instead of the one from dvd,
 				   maybe even stdout output */
 			if (strlen(optarg) > 33)
-				printf
-				    ("[Hint] The max title-name length is 33, the remainder got discarded");
+				printf("[Hint] The max title-name length is 33, the remainder got discarded");
 			safestrncpy(provided_dvd_name, optarg, MAX_PATH_LEN);
 			provided_dvd_name_flag = true;
-			if (!strcasecmp(provided_dvd_name, "stdout") || !strcasecmp(provided_dvd_name, "-")) {
-				stdout_flag = true;
-				force_flag = true;
-			}
 
 			strrepl(provided_dvd_name, ' ', '_');
 			break;
@@ -549,8 +544,10 @@ int main(int argc, char *argv[])
 	/*
 	 * this here gets the dvd name
 	 */
-	if (provided_dvd_name_flag)
+	if (provided_dvd_name_flag) {
+		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
 		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
+	}
 	else
 		get_dvd_name_return = get_dvd_name(dvd_path, dvd_name);
 
@@ -674,11 +671,6 @@ int main(int argc, char *argv[])
 	if (watchdog_minutes) {
 		printe("\n[Info] Setting watchdog timer to %d minutes\n", watchdog_minutes);
 		alarm(watchdog_minutes * 60);
-	}
-
-	if (provided_dvd_name_flag) {
-		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
 	}
 
 	if ((info_flag && vob_size != 0) || mirror_flag) {
