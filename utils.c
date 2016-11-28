@@ -325,6 +325,7 @@ off_t get_used_space(char *path)
 	return used_blocks;
 }
 
+/*Checks for read and write access to path*/
 bool have_access(char *pathname, bool prompt)
 {
 	int op;
@@ -337,7 +338,7 @@ bool have_access(char *pathname, bool prompt)
 		case ENOENT:
 			break;
 		default:
-			die("[Error] REPORT have_access\n");
+			die("[Error] REPORT have_access: %s\n", strerror(errno));
 		}
 	} else if (!overwrite_all_flag && prompt) {
 		printe("[Error] %s exists....\n", pathname);
@@ -356,6 +357,18 @@ bool have_access(char *pathname, bool prompt)
 	}
 
 	return true;
+}
+
+struct dirent *find_dir_entry(DIR *dir, char *name)
+{
+	struct dirent *ret;
+
+	rewinddir(dir);
+	while (ret = readdir(dir))
+		if (strcasestr(ret->d_name, name))
+			return ret;
+
+	return NULL;
 }
 
 /*

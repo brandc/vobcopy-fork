@@ -532,97 +532,38 @@ int get_device_on_your_own( char *path, char *device )
 
 
 /******************* get the whole vob size via stat() ******************/
-
-off_t get_vob_size( int title, char *provided_input_dir ) 
+/*Case isn't always consistent, which is why a lot in this function doesn't look like it's needed but actually is.*/
+off_t get_vob_size(int title, char *provided_input_dir)
 {
-	char stat_path[MAX_PATH_LEN];
-	char path_to_vobs[MAX_PATH_LEN];
-	char path_to_vobs1[MAX_PATH_LEN];
-	char path_to_vobs2[MAX_PATH_LEN];
-	char path_to_vobs3[MAX_PATH_LEN];
+	char vob_path[MAX_PATH_LEN];
+	char search_path[MAX_PATH_LEN];
 
-	int subvob;
-	FILE *tmp_streamin1;
+	DIR *dir;
+	int vob_part;
 	struct stat buf;
-	off_t  vob_size = 0;     
+	off_t  vob_size;
+	struct dirent *entry;
 
-	/* first option: path/vts_xx_yy.vob */
-	sprintf( path_to_vobs, "%s/vts_%.2d", provided_input_dir, title ); /*which title-vob */
-	/* second option: path/VTS_XX_YY.VOB */
-	sprintf( path_to_vobs1, "%s/VTS_%.2d", provided_input_dir, title ); /*which title-vob */
-	/* third option: path/VIDEO_TS/VTS_XX_YY.VOB */
-	sprintf( path_to_vobs2, "%s/VIDEO_TS/VTS_%.2d", provided_input_dir, title ); /*which title-vob */
-	/* fourth option: path/video_ts/vts_xx_yy.vob */
-	sprintf( path_to_vobs3, "%s/video_ts/vts_%.2d", provided_input_dir, title ); /*which title-vob */
+	dir   = opendir(provided_input_dir);
+	entry = find_dir_entry(dir, "VIDEO_TS");
+	/*Set up path for stating*/
+	snprintf(vob_path, MAX_PATH_LEN, "%s/%s/", provided_input_dir, entry->d_name);
+	closedir(dir);
 
-
-	/* extract the size of the files on dvd using stat */
-	sprintf( stat_path, "%s_1.vob", path_to_vobs );
-
-	/*check if this path is correct*/
-	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
-		fclose ( tmp_streamin1 );
-		subvob = 1;
-		while(!stat( stat_path, &buf )) {
-			/* adjust path for next subvob */
-			subvob++;
-			sprintf( stat_path, "%s_%d.vob", path_to_vobs, subvob );
-			vob_size += buf.st_size;
-		}
-
-		return vob_size;
+	vob_size = 0;
+	dir = opendir(vob_path);
+	/*9 is the highest part number for a vob*/
+	for (vob_part = 1; vob_part < 10 ;vob_part++) {
+		snprintf(search_path, MAX_PATH_LEN, "%s/VTS_%.2d_%d.VOB", vob_path, title, vob_part);
+		if (!(entry = find_dir_entry(dir, search_path)))
+			break;
+		if (stat(entry->d_name, &buf))
+			break;
+		vob_size += buf.st_size;
 	}
+	closedir(dir);
 
-	sprintf( stat_path, "%s_1.VOB", path_to_vobs1 );
-
-	/*check if this path is correct */
-	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
-		fclose ( tmp_streamin1 );
-		subvob = 1;
-		while(!stat(stat_path, &buf)) {
-			/* adjust path for next subvob */
-			subvob++;
-			sprintf( stat_path, "%s_%d.VOB", path_to_vobs1, subvob );
-			vob_size += buf.st_size;
-		}
-
-		return vob_size;
-	}
-
-	sprintf( stat_path, "%s_1.VOB", path_to_vobs2 );
-
-	/*check if this path is correct */
-	if(!(tmp_streamin1 = fopen(stat_path, "r"))) {
-		fclose ( tmp_streamin1 );
-		subvob = 1;
-		while(!stat(stat_path, &buf)) {
-			/* adjust path for next subvob */
-			subvob++;
-			sprintf( stat_path, "%s_%d.VOB", path_to_vobs2, subvob );	     
-			vob_size += buf.st_size;
-		}
-
-		return vob_size;
-	}
-
-	sprintf( stat_path, "%s_1.vob", path_to_vobs3 );
-
-	/*check if this path is correct */
-	if (!(tmp_streamin1 = fopen(stat_path, "r"))) {
-		fclose ( tmp_streamin1 );
-		subvob = 1;
-		while(!stat(stat_path, &buf)) {
-			/* adjust path for next subvob */
-			subvob++;
-			sprintf( stat_path, "%s_%d.vob", path_to_vobs3, subvob );	      
-			vob_size += buf.st_size;
-		}
-
-		return vob_size; 
-	}
-
-	/*none of the above seemed to have caught it, so this is the error return */
-	return 0;
+	return vob_size;
 }
 
 /*dvdtime2msec and get_longest_title are copy-paste'd from lsdvd*/
