@@ -533,7 +533,7 @@ int get_device_on_your_own( char *path, char *device )
 
 /******************* get the whole vob size via stat() ******************/
 /*Case isn't always consistent, which is why a lot in this function doesn't look like it's needed but actually is.*/
-off_t get_vob_size(int title, char *provided_input_dir)
+off_t get_vob_size(int title, char *dvd_dir)
 {
 	char vob_path[MAX_PATH_LEN];
 	char search_path[MAX_PATH_LEN];
@@ -544,14 +544,15 @@ off_t get_vob_size(int title, char *provided_input_dir)
 	off_t  vob_size;
 	struct dirent *entry;
 
-	dir   = opendir(provided_input_dir);
+	dir   = opendir(dvd_dir);
 	entry = find_dir_entry(dir, "VIDEO_TS");
 	/*Set up path for stating*/
-	snprintf(vob_path, MAX_PATH_LEN, "%s/%s/", provided_input_dir, entry->d_name);
+	snprintf(vob_path, MAX_PATH_LEN, "%s/%s/", dvd_dir, entry->d_name);
 	closedir(dir);
 
 	vob_size = 0;
 	dir = opendir(vob_path);
+	/*Part 0 of a vob is basically meaningless for some reason.*/
 	/*9 is the highest part number for a vob*/
 	for (vob_part = 1; vob_part < 10 ;vob_part++) {
 		snprintf(search_path, MAX_PATH_LEN, "%s/VTS_%.2d_%d.VOB", vob_path, title, vob_part);
