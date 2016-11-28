@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
 
 		case 'h':	/* good 'ol help */
 			usage(argv[0]);
-			goto cleanup;
+			goto end;
 			break;
 
 		case 'i':	/*input dir, if the automatic needs to be overridden */
@@ -303,9 +303,6 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'o':	/*output destination */
-			if (isdigit((int)*optarg))
-				printe("[Hint] Erm, the number comes behind -n ... \n");
-
 			safestrncpy(provided_output_dir, optarg, MAX_PATH_LEN);
 
 			if (!strcasecmp(provided_output_dir, "stdout") || !strcasecmp(provided_output_dir, "-")) {
@@ -420,27 +417,27 @@ int main(int argc, char *argv[])
 			break;
 		case 'V':	/*version number output */
 			fprintf(stderr, "Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
-			goto cleanup;
+			goto end;
 			break;
 
 		case '?':	/*probably never gets here, the others should catch it */
 			printe("[Error] Wrong option.\n");
 			usage(argv[0]);
-			goto cleanup;
+			goto end;
 			break;
 
 #ifndef HAVE_GETOPT_LONG
 		case '-':	/* no getopt, complain */
 			printe("[Error] %s was compiled without support for long options.\n", argv[0]);
 			usage(argv[0]);
-			goto cleanup;
+			goto end;
 			break;
 #endif
 
 		default: /*probably never gets here, the others should catch it */
 			printe("[Error] Wrong option.\n");
 			usage(argv[0]);
-			goto cleanup;
+			goto end;
 		}
 	} /*End of optopt while loop*/
 
@@ -451,9 +448,11 @@ int main(int argc, char *argv[])
 	/*get the current working directory */
 	if (provided_output_dir_flag)
 		strcpy(pwd, provided_output_dir);
-	else if (!getcwd(pwd, MAX_PATH_LEN))
-		die("\n[Error] Hmm, the path length of your current directory is really large (>255)\n" \
-		    "[Hint] Change to a path with shorter path length pleeeease ;-)\n");
+	else if (!getcwd(pwd, MAX_PATH_LEN)) {
+		printe("\n[Error] Hmm, the path length of your current directory is really large (>255)\n" \
+		       "[Hint] Change to a path with shorter path length pleeeease ;-)\n");
+		goto end;
+	}
 
 	add_end_slash(pwd);
 
@@ -487,17 +486,21 @@ int main(int argc, char *argv[])
 	}
 
 	/*sanity check: -m and -n are mutually exclusive... */
-	if (titleid_flag && mirror_flag)
-		die("\n[Error] There can be only one: either -m or -n...\n");
+	if (titleid_flag && mirror_flag) {
+		printe("\n[Error] There can be only one: either -m or -n...\n");
+		goto end;
+	}
 
 	/*
 	 * Check if the provided path is too long
 	 */
 	if (optind < argc) {	/* there is still the path as in vobcopy-0.2.0 */
 		provided_input_dir_flag = true;
-		if (strlen(argv[optind]) >= MAX_PATH_LEN)
+		if (strlen(argv[optind]) >= MAX_PATH_LEN) {
 			/*Seriously? "_Bloody_ path"?*/
-			die("\n[Error] Bloody path to long '%s'\n", argv[optind]);
+			printe("\n[Error] Bloody path to long '%s'\n", argv[optind]);
+			goto end;
+		}
 		safestrncpy(provided_input_dir, argv[optind], MAX_PATH_LEN);
 	}
 
@@ -540,8 +543,7 @@ int main(int argc, char *argv[])
 		printe("[Error] Try something like -i /cdrom, /dvd  or /mnt/dvd \n");
 		if (dvd_count > 1)
 			printe("[Hint] By the way, you have %i cdroms|dvds mounted, that probably caused the problem\n", dvd_count);
-		DVDClose(dvd);
-		exit(1);
+		goto end;
 	}
 
 	/*
@@ -565,11 +567,9 @@ int main(int argc, char *argv[])
 	vmg_file = ifoOpen(dvd, 0);
 	if (!vmg_file) {
 		printe("[Error] Can't open VMG info.\n");
-		DVDClose(dvd);
-		return -1;
+		goto end;
 	}
 	tt_srpt = vmg_file->tt_srpt;
-	ifoClose(vmg_file);
 
 	/**
 	 * Get the title with the most chapters since this is probably the main part
@@ -595,8 +595,7 @@ int main(int argc, char *argv[])
 	printe("[Info] There are %d titles on this DVD.\n", tt_srpt->nr_of_srpts);
 	if (titleid <= 0 || (titleid - 1) >= tt_srpt->nr_of_srpts) {
 		printe("[Error] Invalid title %d.\n", titleid);
-		DVDClose(dvd);
-		return -1;
+		goto end;
 	}
 
 	/**
@@ -616,8 +615,7 @@ int main(int argc, char *argv[])
 
 	if (chapid < 0 || chapid >= tt_srpt->title[titleid - 1].nr_of_ptts) {
 		printe("[Error] Invalid chapter %d\n", chapid + 1);
-		DVDClose(dvd);
-		return -1;
+		goto end;
 	}
 
 	/**
@@ -629,8 +627,7 @@ int main(int argc, char *argv[])
 	printe("\n[Info] There are %d angles on this dvd.\n", sum_angles);
 	if (angle < 0 || angle >= tt_srpt->title[titleid - 1].nr_of_angles) {
 		printe("[Error] Invalid angle %d\n", angle + 1);
-		DVDClose(dvd);
-		return -1;
+		goto end;
 	}
 
 	if (info_flag) {
@@ -653,7 +650,7 @@ int main(int argc, char *argv[])
 	} else if (mounted && !mirror_flag) {
 		vob_size = (get_vob_size(titleid, provided_input_dir)) - get_sector_offset(start_sector) - get_sector_offset(end_sector);
 
-		if (vob_size == 0 || vob_size > (9*GIGA)) {
+		if ((!vob_size) || (vob_size > (9*GIGA))) {
 			printe("\n[Error] Something went wrong during the size detection of the");
 			printe("\n[Error] vobs, size check at the end won't work (probably), but I continue anyway\n\n");
 			vob_size = 0;
@@ -679,17 +676,24 @@ int main(int argc, char *argv[])
 		alarm(watchdog_minutes * 60);
 	}
 
-	/**
-	 * this is the mirror section
-	 */
+	if (provided_dvd_name_flag) {
+		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
+		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
+	}
+
+	if ((info_flag && vob_size != 0) || mirror_flag) {
+		printe("\n[Info] DVD-name: %s\n", dvd_name);
+		printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
+		printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
+		goto end;
+	}
 
 	if (mirror_flag) {
-		mirror(dvd_name, provided_dvd_name_flag, provided_dvd_name,
-		       pwd, pwd_free, onefile_flag, force_flag,
+		mirror(dvd_name, pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
 		       dvd, block_count);
 
-		goto cleanup;
+		goto end;
 	}
 
 	/*
@@ -702,31 +706,19 @@ int main(int argc, char *argv[])
 	printe("[Info] Using Chapter: %i\n", chapid + 1);
 	printe("[Info] Using Angle: %i\n", angle + 1);
 
-	if (info_flag && vob_size != 0) {
-		printe("\n[Info] DVD-name: %s\n", dvd_name);
-		printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
-		printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
-		DVDCloseFile(dvd_file);
-		DVDClose(dvd);
-		/*hope all are closed now... */
-		exit(0);
-	}
-
 	/**
 	 * We've got enough info, time to open the title set data.
 	 */
 	dvd_file = DVDOpenFile(dvd, tt_srpt->title[titleid - 1].title_set_nr, DVD_READ_TITLE_VOBS);
 	if (!dvd_file) {
 		printe("[Error] Can't open title VOBS (VTS_%02d_1.VOB).\n", tt_srpt->title[titleid - 1].title_set_nr);
-		DVDClose(dvd);
-		return -1;
+		goto end;
 	}
 
 	file_size_in_blocks = DVDFileSize(dvd_file);
 
 	if (vob_size == (-get_sector_offset(start_sector) - get_sector_offset(end_sector))) {
-		vob_size =
-		           ((off_t) (file_size_in_blocks) * (off_t) DVD_VIDEO_LB_LEN) -
+		vob_size = ((off_t) (file_size_in_blocks) * (off_t) DVD_VIDEO_LB_LEN) -
 			   get_sector_offset(start_sector) - get_sector_offset(end_sector);
 		if (verbosity_level >= 1)
 			printe("[Info] Vob_size was 0\n");
@@ -851,7 +843,7 @@ int main(int argc, char *argv[])
 			streamout = open_partial(name);
 			if (streamout < 0) {
 				printe("[Error] Either don't have access or couldn't open %s\n", name);
-				goto cleanup;
+				goto end;
 			}
 		}
 
@@ -987,7 +979,7 @@ int main(int argc, char *argv[])
 	if ((vob_size - disk_vob_size) > MAX_DIFFER) {
 		printe("[Error] Hmm, the sizes differ by more than %d\n", MAX_DIFFER);
 		printe("[Hint] Take a look with MPlayer if the output is ok\n");
-		goto cleanup;
+		goto end;
 	}
 
 	printe("[Info] Everything seems to be fine, the sizes match pretty good\n");
@@ -997,7 +989,7 @@ int main(int argc, char *argv[])
 	 * clean up and close everything *
 	 *********************************/
 
-	cleanup:
+	end:
 		free(pwd);
 		free(name);
 		free(onefile);
@@ -1014,6 +1006,8 @@ int main(int argc, char *argv[])
 
 		if (dvd_file)
 			DVDCloseFile(dvd_file);
+		if (vmg_file)
+			ifoClose(vmg_file);
 		if (dvd)
 			DVDClose(dvd);
 
@@ -1102,11 +1096,6 @@ void usage(char *program_name)
 	);
 }
 
-/* from play_title */
-void play_title(void)
-{
-
-}
 /**
  * Returns true if the pack is a NAV pack.  This check is clearly insufficient,
  * and sometimes we incorrectly think that valid other packs are NAV packs.  I

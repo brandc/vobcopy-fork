@@ -534,6 +534,7 @@ int get_device_on_your_own( char *path, char *device )
 		printe("[Error] There seems to be no cd/dvd mounted. Please do that..\n");
 		return -1;
 	}
+
 	return dvd_count;
 }
 #endif
@@ -579,7 +580,7 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			vob_size += buf.st_size;
 		}
 
-		return (off_t)vob_size;
+		return vob_size;
 	}
 
 	sprintf( stat_path, "%s_1.VOB", path_to_vobs1 );
@@ -592,11 +593,10 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			/* adjust path for next subvob */
 			subvob++;
 			sprintf( stat_path, "%s_%d.VOB", path_to_vobs1, subvob );
-
 			vob_size += buf.st_size;
 		}
 
-		return ( off_t ) vob_size;
+		return vob_size;
 	}
 
 	sprintf( stat_path, "%s_1.VOB", path_to_vobs2 );
@@ -609,11 +609,10 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			/* adjust path for next subvob */
 			subvob++;
 			sprintf( stat_path, "%s_%d.VOB", path_to_vobs2, subvob );	     
-
 			vob_size += buf.st_size;
 		}
 
-		return ( off_t ) vob_size;
+		return vob_size;
 	}
 
 	sprintf( stat_path, "%s_1.vob", path_to_vobs3 );
@@ -629,14 +628,11 @@ off_t get_vob_size( int title, char *provided_input_dir )
 			vob_size += buf.st_size;
 		}
 
-		return ( off_t ) vob_size; 
+		return vob_size; 
 	}
 
 	/*none of the above seemed to have caught it, so this is the error return */
-	return ( off_t ) 0; /* think that (off_t) is not really needed here?
-			     * as it is defined as off_t and the function is
-			     * also defined as off_t
-			     */
+	return 0;
 }
 
 /*dvdtime2msec and get_longest_title are copy-paste'd from lsdvd*/

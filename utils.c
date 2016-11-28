@@ -29,8 +29,10 @@ const int O_DETECTED_FLAG = O_LARGEFILE;
 const int O_DETECTED_FLAG = 0;
 #endif
 
-const long long BLOCK_SIZE      = 512LL; /*I believe this has more to do with POSIX*/
-const long long DVD_SECTOR_SIZE = 2048LL;
+const long long BLOCK_SIZE          = 512LL; /*I believe this has more to do with POSIX*/
+const long long DVD_SECTOR_SIZE     = 2048LL;
+/*The first data block in the dvd is unused by the filesystem and reserved for the system*/
+const long long DVD_DATA_BLOCK_SIZE = 32768LL; /*16*DVD_SECTOR_SIZE or 2^15 or 32768*/
 
 const long long KILO = 1024LL;
 const long long MEGA = (1024LL * 1024LL);
@@ -62,8 +64,6 @@ void printe(char *str, ...)
 	if (vfprintf(stderr, str, args) < 0)
 		die("vfprintf failed\n");
 	va_end(args);
-
-	return;
 }
 
 /*A lot of magic numbers involve sectors*/
@@ -111,6 +111,47 @@ void capitalize(char *str, size_t len)
 		}
 	}
 }
+
+#if !defined( _GNU_SOURCE )
+/*Checks if lower case*/
+static bool is_lower(char c)
+{
+	if ((c >= 'a') && (c <= 'z'))
+		return true;
+	return false;
+}
+
+/*If the character is indeed lower case, it is made upper case*/
+static char lower2upper(char c)
+{
+	if (is_lower(c))
+		return (c - 'a') + 'A';
+	return c;
+}
+
+char *strcasestr(const char *haystack, const char *needle)
+{
+	size_t i, j, haystacklen, needlelen;
+
+	needlelen   = strlen(needle);
+	haystacklen = strlen(haystack);
+	for (i = 0; i < haystacklen; i++) {
+		for (j = 0; (j < needlelen) && ((i+j) > haystacklen); j++) {
+			if (lower2upper(haystack[i+j]) != lower2upper(needle[j]))
+				break;
+		}
+
+		if ((i+j) > haystacklen)
+			break;
+		else if (j == (needlelen-1)) {
+			if (lower2upper(haystack[i+j]) == lower2upper(needle[j]))
+				return ((char*)haystack)+i+j;
+		}
+	}
+
+	return NULL;
+}
+#endif
 
 /*This was implemented five different times in a few functions*/
 /* options_str: Informs the user of options to take

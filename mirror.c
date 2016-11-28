@@ -21,6 +21,8 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
 /*B. Watson*/
 #include <stdbool.h>
 #include <sys/types.h>
@@ -37,7 +39,7 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 /*----------Why exactly does mirroring the disk take so much code?---------*/
 /*=========================================================================*/
-void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
 	    dvd_reader_t *dvd, int block_count)
 {
@@ -51,18 +53,11 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 	dvd_file_t *dvd_file = NULL;
 	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
 
-	printe("\n[Info] DVD-name: %s\n", dvd_name);
-	if (provided_dvd_name_flag) {
-		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
-	}
-
-	printe("[Info]  Disk free: %0.0f MB\n", (float)((float)pwd_free      / (float)(KILO * KILO)));
-	printe("[Info]  Vobs size: %0.0f MB\n", (float)((float)disk_vob_size / (float)(KILO * KILO)));
-
-	if (!((force_flag || pwd_free > disk_vob_size) && alternate_dir_count < 2))
-		die("[Error] Not enough free space on the destination dir. Please choose another one or -f\n"
+	if (!((force_flag || pwd_free > disk_vob_size) && alternate_dir_count < 2)) {
+		printe("[Error] Not enough free space on the destination dir. Please choose another one or -f\n"
 		       "[Error] or dirs behind -1, -2 ... are NOT allowed with -m!\n");
+		return;
+	}
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
 	char video_ts_dir[MAX_PATH_LEN];
@@ -95,31 +90,29 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 		strncpy(video_ts_dir, provided_input_dir, MAX_PATH_LEN);
 		strcat(video_ts_dir, "VIDEO_TS");
 		dir = opendir(video_ts_dir);
-		if (dir == NULL)
-			die("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"
+		if (dir == NULL) {
+			printe("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"
 			       "[Error] The dir to be opened was: %s\n"
 			       "[Hint] Please mail me what your vobcopy call plus -v -v spits out\n",
 			       video_ts_dir
 			);
+
+			return;
+		}
 	}
 
 	directory = readdir(dir);	/* thats the . entry */
 	directory = readdir(dir);	/* thats the .. entry */
 	/* according to the file type (vob, ifo, bup) the file gets copied */
 	while ((directory = readdir(dir)) != NULL) {	/*main mirror loop */
-		safestrncpy(output_file, name, MAX_PATH_LEN);
+		dvd_file = NULL;
 
+		safestrncpy(output_file, name, MAX_PATH_LEN);
 		/*in dvd specs it says it must be uppercase VIDEO_TS/VTS...
 		   but iso9660 mounted dvd's sometimes have it lowercase */
 		safestrncpy(d_name, directory->d_name, MAX_PATH_LEN);
 		capitalize(d_name, MAX_PATH_LEN);
 
-		/*in order to copy only _one_ file */
-		/*                if( onefile_flag )
-		   {
-		   if( !strstr( onefile, d_name ) ) maybe other way around */
-		/*                    continue;
-		   } */
 		/*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it */
 		if (onefile_flag) {
 			char *tokenpos, *tokenpos1;
@@ -135,29 +128,24 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 					tmp[len_begin] = '\0';
 
 					if (strstr(d_name, tmp))
-						goto next;	/*if the token is found in the d_name copy */
-					else
-						continue;	/* next token is tested */
+						break;
 				}
 
 				continue;	/*no token matched, next d_name is tested */
 			} else {
-				if (strstr(d_name, onefile))	/*if the token is found in the d_name copy */
-					goto next;
-				else				/*maybe other way around */
+				if (!strstr(d_name, onefile))	/*if the token is found in the d_name copy */
 					continue;
 			}
 		}
-
-		/*LABEL!!!!!!!!!!!!!!!!!!!!!!!!!*/
-		next:/*for the goto - ugly, I know... */
 
 		if (stdout_flag) /*this writes to stdout */
 			streamout = STDOUT_FILENO;	/*in other words: 1, see "man stdout" */
 		else {
 			streamout = open_partial(output_file);
-			if (streamout < 0)
-				die("[Error] Either didn't have access or couldn't open %s\n", output_file);
+			if (streamout < 0) {
+				printe("[Error] Either didn't have access or couldn't open %s\n", output_file);
+				return;
+			}
 		}
 
 		/* get the size of that file */
@@ -186,17 +174,23 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 		/*which file type is it */
 
-		if (strstr(directory->d_name, ".bup") || strstr(directory->d_name, ".BUP")) {
+		if (strcasestr(directory->d_name, ".IFO") || strcasestr(directory->d_name, ".BUP")) {
 			dvd_file = DVDOpenFile(dvd, title_nr, DVD_READ_INFO_BACKUP_FILE);
 
 			/*this copies the data to the new file */
 			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
 				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
-				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0)
-					die("\n[Error] Error writing to %s \n"
-					"[Error] Error: %s\n",
-					output_file,
-					strerror(errno));
+				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) == -1) {
+					printe("\n[Error] Error writing to %s \n"
+					    "[Error] Error: %s\n",
+					    output_file,
+					    strerror(errno)
+					);
+					if (dvd_file)
+						DVDCloseFile(dvd_file);
+					closedir(dir);
+					return;
+				}
 
 				/* progress indicator */
 				tmp_i = i;
@@ -204,48 +198,21 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			}
 			fputc('\n', stderr);
 			if (!stdout_flag) {
-				if (fdatasync(streamout) < 0)
-					die("\n[Error] error writing to %s \n"
+				if (fdatasync(streamout) < 0) {
+					printe("\n[Error] error writing to %s \n"
 					       "[Error] error: %s\n",
 						output_file,
 						strerror(errno));
+					if (dvd_file)
+						DVDCloseFile(dvd_file);
+					closedir(dir);
+					return;
+				}
 
 				close(streamout);
 				rename_partial(output_file);
 			}
-		}
-
-		if (strstr(directory->d_name, ".ifo") || strstr(directory->d_name, ".IFO")) {
-			dvd_file = DVDOpenFile(dvd, title_nr, DVD_READ_INFO_FILE);
-
-			/*this copies the data to the new file */
-			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
-				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
-				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0)
-					die("\n[Error] Error writing to %s \n"
-					       "[Error] Error: %s\n",
-					       output_file,
-					       strerror(errno)
-					);
-				/* progress indicator */
-				tmp_i = i;
-				printe("%4.0fkB of %4.0fkB written\r", (tmp_i + 1) * (DVD_VIDEO_LB_LEN / KILO), tmp_file_size / KILO);
-			}
-			printe("\n");
-			if (!stdout_flag) {
-				if (fdatasync(streamout) < 0)
-					die("\n[Error] error writing to %s \n"
-					       "[Error] error: %s\n",
-					       output_file,
-					       strerror(errno)
-					);
-
-				close(streamout);
-				rename_partial(output_file);
-			}
-		}
-
-		if (strstr(directory->d_name, ".vob") || strstr(directory->d_name, ".VOB")) {
+		} else if (strcasestr(directory->d_name, ".VOB")) {
 			if (directory->d_name[7] == '0' || title_nr == 0) {
 				/*this is vts_xx_0.vob or video_ts.vob, a menu vob */
 				dvd_file = DVDOpenFile(dvd, title_nr, DVD_READ_MENU_VOBS);
@@ -257,8 +224,8 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 				/* reset start when at beginning of Title */
 				start = 0;
 			else if (directory->d_name[7] > '1' && directory->d_name[7] <= '9') {
-				off_t culm_single_vob_size = 0;
 				int a, subvob;
+				off_t culm_single_vob_size = 0;
 
 				subvob = (directory->d_name[7] - '0');
 
@@ -269,8 +236,13 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 						input_file[strlen(input_file) - 5] = (a + '0');
 
 					/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 ); */
-					if (stat(input_file, &fileinfo) < 0)
-						die("[Info] Can't stat() %s.\n", input_file);
+					if (stat(input_file, &fileinfo) < 0) {
+						printe("[Info] Can't stat() %s.\n", input_file);
+						if (dvd_file)
+							DVDCloseFile(dvd_file);
+						closedir(dir);
+						return;
+					}
 
 					culm_single_vob_size += fileinfo.st_size;
 					if (verbosity_level > 1)
@@ -312,30 +284,23 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 
 				/*TODO: this skipping here writes too few bytes to the output */
 
-				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
-					die("\n[Error] Error writing to %s \n"
+				if (write(streamout, bufferin, (DVD_VIDEO_LB_LEN * blocks)) == -1) {
+					printe("\n[Error] Error writing to %s \n"
 					       "[Error] Error: %s, errno: %d \n",
 					       output_file,
 					       strerror(errno),
 					       errno
 					);
+					if (dvd_file)
+						DVDCloseFile(dvd_file);
+					closedir(dir);
+					return;
+				}
 
 				/*progression bar */
 				/*this here doesn't work with -F 10 */
 				/*                      if( !( ( ( ( i-start )+1 )*DVD_VIDEO_LB_LEN )%MEGA ) ) */
 				progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + DVD_SECTOR_SIZE), false);
-				/*
-				 *if( check_progress() )
-				 *{
-				 *	tmp_i = ( i-start );
-				 *
-				 *	percent = ( ( ( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )*100 )/tmp_file_size );
-				 *	printe("\r%4.0fMB of %4.0fMB written "),
-				 *	( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )/MEGA,
-				 *	( tmp_file_size+DVD_SECTOR_SIZE )/MEGA );
-				 *	printe("( %3.1f %% ) ",percent );
-				 * }
-				 */
 			}
 			/*this is just so that at the end it actually says 100.0% all the time... */
 			/*TODO: if it is correct to always assume it's 100% is a good question.... */
@@ -346,29 +311,31 @@ void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name
 			*/
 			progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + DVD_SECTOR_SIZE), true);
 			start = i;
-			printe("\n");
+			fputc('\n', stderr);
 			if (!stdout_flag) {
-				if (fdatasync(streamout) < 0)
-					die("\n[Error] error writing to %s \n"
-					       "[Error] error: %s\n",
-					       output_file,
-					       strerror(errno)
+				if (fdatasync(streamout) < 0) {
+					printe("\n[Error] error writing to %s \n"
+					    "[Error] error: %s\n",
+					    output_file,
+					    strerror(errno)
 					);
+					if (dvd_file)
+						DVDCloseFile(dvd_file);
+					closedir(dir);
+					return;
+				}
 
 				close(streamout);
 				rename_partial(output_file);
 			}
+
+			if (dvd_file)
+				DVDCloseFile(dvd_file);
 		}
 	}
+	closedir(dir);
 
-	DVDCloseFile(dvd_file);
-	DVDClose(dvd);
 	if (overall_skipped_blocks > 0)
 		printe("[Info] %d blocks had to be skipped, be warned.\n", overall_skipped_blocks);
-	return;
 	/*end of mirror block */
 }
-
-
-
-

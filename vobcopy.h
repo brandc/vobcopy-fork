@@ -23,6 +23,10 @@
 
 #define VERSION "1.2.0"
 
+#if defined(__GLIBC__)
+#	define _GNU_SOURCE
+#endif
+
 #include <stdbool.h>
 
 #if defined( __gettext__ )
@@ -266,10 +270,11 @@ char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
 long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
+char *strcasestr(const char *haystack, const char *needle);
 int open_partial(char *filename);
 
 /*mirror.c*/
-void mirror(char *dvd_name, bool provided_dvd_name_flag, char *provided_dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
 	    dvd_reader_t *dvd, int block_count);
 
