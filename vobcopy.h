@@ -1,4 +1,4 @@
-/* vobcopy 1.2.0
+/* vobcopy 1.3.0
  *
  * Copyright (c) 2001 - 2009 robos@muon.de
  * Lots of contribution and cleanup from rosenauer@users.sourceforge.net
@@ -21,7 +21,7 @@
  * with vobcopy; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VERSION "1.2.0"
+#define VERSION "1.3.0"
 
 #if defined( __gettext__ )
 #	include <locale.h>

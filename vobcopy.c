@@ -1,4 +1,4 @@
-/* vobcopy 1.2.0
+/* vobcopy 1.3.0
  *
  * Copyright (c) 2001 - 2009 robos@muon.de
  * Lots of contribution and cleanup from rosenauer@users.sourceforge.net
