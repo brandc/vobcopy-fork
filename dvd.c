@@ -49,43 +49,25 @@ int get_dvd_name(const char *device, char *title)
 	char file_buf[DVD_SECTOR_SIZE];
 
 	/* open the device */
-	if (!(fd = open(device, O_RDONLY, 0))) {
-		/* open failed */
-		printe("[Error] Something went wrong while getting the dvd name  - please specify path as /cdrom or /dvd (mount point) or use -t\n");
-		printe("[Error] Opening of the device failed\n");
-		printe("[Error] Error: %s\n", strerror(errno));
-		return -1;
-	}
+	if ((fd = open(device, O_RDONLY, 0)) < 0)
+		goto read_error;
 
 	/* seek to title of first track, which is at (track_no * 32768) + 40 */
 	sector_offset = get_sector_offset(16);
-	if (sector_offset != lseek(fd, sector_offset, SEEK_SET)) {
-		/* seek failed */
-		close(fd);
-		printe("[Error] Something went wrong while getting the dvd name - please specify path as /cdrom or /dvd (mount point) or use -t\n");
-		printe("[Error] Couldn't seek into the drive\n");
-		printe("[Error] Error: %s\n", strerror(errno));
-		return -1;
-	}
+	if (sector_offset != lseek(fd, sector_offset, SEEK_SET))
+		goto read_error;
 
 	/* read title */
-	if ((bytes_read = read(fd, file_buf, DVD_SECTOR_SIZE)) != DVD_SECTOR_SIZE) {
-		close(fd);
-		printe("[Error] something wrong in dvd_name getting - please specify path as /cdrom or /dvd (mount point) or use -t\n");
-		printe("[Error] only read %d bytes instead of 2048\n", bytes_read);
-		printe("[Error] Error: %s\n", strerror(errno));
-		return -1;
-	}
+	if ((bytes_read = read(fd, file_buf, DVD_SECTOR_SIZE)) != DVD_SECTOR_SIZE)
+		goto read_error;
 	/*The fd is no longer needed*/
 	close(fd);
 
 	/*+40 must be the title offset*/
 	safestrncpy(title, file_buf+40, 32);
-	/*I wonder what the magic 32 means*/
+	/*32 = maximum title length*/
 
-	/* we don't need trailing spaces
-	 * find the last character that is not ' '
-	 */
+	/*Remove any trailing spaces*/
 	last = strrchr(title, ' ') - title;
 
 	/*removes trailing spaces*/
@@ -101,6 +83,14 @@ int get_dvd_name(const char *device, char *title)
 	strrepl(title, ' ', '_');
 
 	return 0;
+
+	read_error:
+		if (fd > 0)
+			close(fd);
+		printe("[Error] something wrong in dvd_name getting - please specify path as /cdrom or /dvd (mount point) or use -t\n");
+		printe("[Error] only read %d bytes instead of 2048\n", bytes_read);
+		printe("[Error] Error: %s\n", strerror(errno));
+		return -1;
 }
 #endif /* !defined(__sun) */
 
