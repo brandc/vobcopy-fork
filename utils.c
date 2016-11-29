@@ -142,7 +142,7 @@ char *strcasestr(const char *haystack, const char *needle)
 
 		if (j == needlelen) {
 			if (lower2upper(haystack[i+j-1]) == lower2upper(needle[j-1])) {
-				return ((char*)haystack)+i+j-1;
+				return ((char*)haystack)+i;
 			}
 		} else if ((i+j) > haystacklen)
 			break;
@@ -364,7 +364,7 @@ char *find_listing(char *path, char *name)
 {
 	DIR *dir;
 	struct dirent *entry;
-	static char ret[MAX_PATH_LEN];
+	static char ret[PATH_MAX];
 
 	dir = opendir(path);
 	if (!dir)
@@ -372,7 +372,7 @@ char *find_listing(char *path, char *name)
 	memset(&ret, 0, sizeof(ret));
 	while ((entry = readdir(dir))) {
 		if (strcasestr(entry->d_name, name)) {
-			safestrncpy(ret, entry->d_name, MAX_PATH_LEN);
+			safestrncpy(ret, entry->d_name, PATH_MAX);
 			closedir(dir);
 			return ret;
 		}
@@ -388,10 +388,10 @@ char *find_listing(char *path, char *name)
 
 void rename_partial(char *name)
 {
-	char output[MAX_PATH_LEN];
+	char output[PATH_MAX];
 
-	safestrncpy(output, name, MAX_PATH_LEN);
-	strncat(output, ".partial", MAX_PATH_LEN);
+	safestrncpy(output, name, PATH_MAX);
+	strncat(output, ".partial", PATH_MAX);
 
 	if (!have_access(name, true) || !have_access(output, false))
 		die("[Error] Failed to move \"%s\" to \"%s\"\n", output, name);
@@ -431,16 +431,16 @@ void redirectlog(char *filename)
 int open_partial(char *filename)
 {
 	int fd;
-	char output[MAX_PATH_LEN];
+	char output[PATH_MAX];
 
-	memset(output, 0, MAX_PATH_LEN);
+	memset(output, 0, PATH_MAX);
 
 	if (strstr(filename, ";?")) {
 		printe("\n[Hint] File on dvd ends in \";?\" (%s)\n", filename);
 		assert(strlen(filename) > 2);
 		safestrncpy(output, filename, strlen(filename)-2);
 	} else
-		safestrncpy(output, filename, MAX_PATH_LEN);
+		safestrncpy(output, filename, PATH_MAX);
 
 	printe("[Info] Writing to %s \n", output);
 
@@ -448,7 +448,7 @@ int open_partial(char *filename)
 		return -1;
 
 	/*append .partial*/
-	strncat(output, ".partial", MAX_PATH_LEN);
+	strncat(output, ".partial", PATH_MAX);
 
 	if (!have_access(output, true))
 		return -1;
@@ -463,19 +463,21 @@ int open_partial(char *filename)
 	return fd;
 }
 
-size_t copy_vob(dvd_file_t *dvd_file, int start_sector, int sectors, int retries, int outfd)
+/*returns sectors written*/
+size_t copy_vob(dvd_file_t *dvd_file, unsigned int start_sector, unsigned int sectors, unsigned int retries, int outfd)
 {
-	int tries;
-	int sector;
+	size_t sector;
+	ssize_t written;
 	time_t starttime;
 	int total_sectors;
-	int skipped_sectors;
+	unsigned int tries;
+	size_t skipped_sectors;
 	unsigned char buffer[DVD_SECTOR_SIZE];
 
-	total_sectors  = DVDFileSize(dvd_file);
-	if ((!sectors) && (total_sectors < sectors))
-		total_sectors = sectors;
-	total_sectors -= start_sector;
+	if (sectors)
+		total_sectors  = sectors;
+	else
+		total_sectors = DVDFileSize(dvd_file);
 
 	skipped_sectors = 0;
 	starttime       = time(NULL);
@@ -494,14 +496,19 @@ size_t copy_vob(dvd_file_t *dvd_file, int start_sector, int sectors, int retries
 			continue;
 		}
 
-		if (write(outfd, buffer, DVD_SECTOR_SIZE) != DVD_SECTOR_SIZE) {
-			printe("\n[Error] Failed to write sector to output file because of: %s\n", strerror(errno));
-			continue;
+		written = write(outfd, buffer, DVD_SECTOR_SIZE);
+		if (written < 0) {
+			printe("\n[Error] write failed: %s\n", strerror(errno));
+			break;
+		} else if (written != DVD_SECTOR_SIZE) {
+			printe("\n[Error] Failed to write the full sector because: %s\n", strerror(errno));
+			break;
 		}
 
-		progressUpdate(starttime, sector, total_sectors, false);
+		/*starttime, current sector relative to last, last sector, force printing of status bar*/
+		progressUpdate(starttime, (sector - start_sector), total_sectors, false);
 	}
 
 	/*Calculate the actual amount of data wrote*/
-	return (sectors - skipped_sectors) * DVD_SECTOR_SIZE;
+	return (sectors - skipped_sectors);
 }

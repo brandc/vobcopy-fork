@@ -42,7 +42,6 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	struct dirent *directory;
 	struct stat fileinfo;
 
-	int blocks;
 	int streamout;
 
 	dvd_file_t *dvd_file = NULL;
@@ -50,19 +49,19 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
 	DIR* dir;
-	char video_ts_dir[MAX_PATH_LEN];
+	char video_ts_dir[PATH_MAX];
 	char number[8];
-	char input_file[MAX_PATH_LEN];
-	char output_file[MAX_PATH_LEN];
+	char input_file[PATH_MAX];
+	char output_file[PATH_MAX];
 	int i, start, title_nr = 0;
 	off_t file_size;
 	double tmp_i = 0, tmp_file_size = 0;
 	char *name;
-	char dvd_path[MAX_PATH_LEN];
-	char d_name[MAX_PATH_LEN];
+	char dvd_path[PATH_MAX];
+	char d_name[PATH_MAX];
 
 	memset(&dvd_path, 0, sizeof(dvd_path));
-	safestrncpy(dvd_path, cwd, MAX_PATH_LEN - 34);
+	safestrncpy(dvd_path, cwd, PATH_MAX - 34);
 	strncat(dvd_path, dvd_name, 33);
 
 	if (!stdout_flag) {
@@ -77,7 +76,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 		printe("[Error] Could not find VIDEO_TS directory!\n");
 		return;
 	}
-	snprintf(video_ts_dir, MAX_PATH_LEN, "%s/%s", provided_input_dir, name);
+	snprintf(video_ts_dir, PATH_MAX, "%s/%s", provided_input_dir, name);
 	dir = opendir(video_ts_dir);
 	if (!dir) {
 		printe("[Error] Could not open VIDEO_TS directory at %s for reason: %s\n", video_ts_dir, strerror(errno));
@@ -92,9 +91,9 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 
 		/*in dvd specs it says it must be uppercase VIDEO_TS/VTS...
 		   but iso9660 mounted dvd's sometimes have it lowercase */
-		safestrncpy(d_name, directory->d_name, MAX_PATH_LEN);
-		capitalize(d_name, MAX_PATH_LEN);
-		snprintf(output_file, MAX_PATH_LEN, "%s/%s", cwd, d_name);
+		safestrncpy(d_name, directory->d_name, PATH_MAX);
+		capitalize(d_name, PATH_MAX);
+		snprintf(output_file, PATH_MAX, "%s/%s", cwd, d_name);
 
 		/*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it */
 		if (onefile_flag) {
@@ -132,11 +131,9 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 		}
 
 		/* get the size of that file */
-		safestrncpy(input_file, video_ts_dir, MAX_PATH_LEN);
-		strcat(input_file, "/");
-		strcat(input_file, directory->d_name);
+		snprintf(input_file, PATH_MAX, "%s/%s/%s", cwd, video_ts_dir, directory->d_name);
 		stat(input_file, &fileinfo);
-		file_size = fileinfo.st_size;
+		file_size     = fileinfo.st_size;
 		tmp_file_size = file_size;
 
 		memset(bufferin, 0, DVD_VIDEO_LB_LEN * sizeof(unsigned char));

@@ -241,10 +241,6 @@
 #include <errno.h>
 #include <limits.h>
 
-#if !defined(MAX_PATH_LEN)
-	#define MAX_PATH_LEN PATH_MAX
-#endif
-
 /*vobcopy.c*/
 char *name;
 bool force_flag;
@@ -291,7 +287,7 @@ char *strcasestr(const char *haystack, const char *needle);
 int open_partial(char *filename);
 char *find_listing(char *path, char *name);
 bool have_access(char *pathname, bool prompt);
-size_t copy_vob(dvd_file_t *dvd_file, int start_sector, int sectors, int retries, int outfd);
+size_t copy_vob(dvd_file_t *dvd_file, unsigned int start_sector, unsigned int sectors, unsigned int retries, int outfd);
 
 /*mirror.c*/
 void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,

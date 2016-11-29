@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	extern int optind, optopt;
 
 	int op, i, num_of_files, partcount;
-	int streamout, block_count, blocks, file_block_count;
+	int streamout, block_count;
 
 	unsigned char *bufferin = NULL;
 	long long unsigned int end_sector   = 0;
@@ -101,7 +101,6 @@ int main(int argc, char *argv[])
 	off_t pwd_free                      = 0;
 	off_t vob_size                      = 0;
 	off_t free_space                    = 0;
-	off_t angle_blocks_skipped          = 0;
 	ssize_t file_size_in_blocks         = 0;
 	off_t max_filesize_in_blocks_summed = 0;
 	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
@@ -141,19 +140,19 @@ int main(int argc, char *argv[])
 	memset(provided_dvd_name, 0, sizeof(provided_dvd_name));
 
 	/*Allocating buffers*/
-	pwd                 = palloc(sizeof(char), MAX_PATH_LEN);
-	name                = palloc(sizeof(char), MAX_PATH_LEN);
-	onefile             = palloc(sizeof(char), MAX_PATH_LEN);
-	dvd_path            = palloc(sizeof(char), MAX_PATH_LEN);
-	vobcopy_call        = palloc(sizeof(char), MAX_PATH_LEN);
-	provided_output_dir = palloc(sizeof(char), MAX_PATH_LEN);
-	provided_input_dir  = palloc(sizeof(char), MAX_PATH_LEN);
-	logfile_path        = palloc(sizeof(char), MAX_PATH_LEN);
+	pwd                 = palloc(sizeof(char), PATH_MAX);
+	name                = palloc(sizeof(char), PATH_MAX);
+	onefile             = palloc(sizeof(char), PATH_MAX);
+	dvd_path            = palloc(sizeof(char), PATH_MAX);
+	vobcopy_call        = palloc(sizeof(char), PATH_MAX);
+	provided_output_dir = palloc(sizeof(char), PATH_MAX);
+	provided_input_dir  = palloc(sizeof(char), PATH_MAX);
+	logfile_path        = palloc(sizeof(char), PATH_MAX);
 	bufferin            = palloc(sizeof(unsigned char), (DVD_VIDEO_LB_LEN * BLOCK_COUNT));
 
-	alternate_output_dir = palloc(sizeof(char*), MAX_PATH_LEN);
+	alternate_output_dir = palloc(sizeof(char*), PATH_MAX);
 	for (i = 0; i < 4; i++)
-		alternate_output_dir[i] = palloc(sizeof(char), MAX_PATH_LEN);
+		alternate_output_dir[i] = palloc(sizeof(char), PATH_MAX);
 	
 
 	/**
@@ -263,7 +262,7 @@ int main(int argc, char *argv[])
 			       "This option is only there if vobcopy makes trouble.\n");
 			printe("[Hint] If vobcopy makes trouble, please mail me so that I can fix this (robos@muon.de). Thanks\n");
 
-			safestrncpy(provided_input_dir, optarg, MAX_PATH_LEN);
+			safestrncpy(provided_input_dir, optarg, PATH_MAX);
 			if (strstr(provided_input_dir, "/dev")) {
 				printe("[Error] Please don't use -i /dev/something in this version, only the next version will support this again.\n");
 				printe("[Hint] Please use the mount point instead (/cdrom, /dvd, /mnt/dvd or something)\n");
@@ -299,7 +298,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'o':	/*output destination */
-			safestrncpy(provided_output_dir, optarg, MAX_PATH_LEN);
+			safestrncpy(provided_output_dir, optarg, PATH_MAX);
 
 			if (!strcasecmp(provided_output_dir, "stdout") || !strcasecmp(provided_output_dir, "-")) {
 				stdout_flag = true;
@@ -335,7 +334,7 @@ int main(int argc, char *argv[])
 				   maybe even stdout output */
 			if (strlen(optarg) > 33)
 				printf("[Hint] The max title-name length is 33, the remainder got discarded");
-			safestrncpy(provided_dvd_name, optarg, MAX_PATH_LEN);
+			safestrncpy(provided_dvd_name, optarg, PATH_MAX);
 			provided_dvd_name_flag = true;
 
 			strrepl(provided_dvd_name, ' ', '_');
@@ -379,7 +378,7 @@ int main(int argc, char *argv[])
 
 		case 'O':	/*only one file will get copied */
 			onefile_flag = true;
-			safestrncpy(onefile, optarg, MAX_PATH_LEN);
+			safestrncpy(onefile, optarg, PATH_MAX);
 
 			for (i = 0; onefile[i]; i++) {
 				onefile[i] = toupper(onefile[i]);
@@ -427,7 +426,7 @@ int main(int argc, char *argv[])
 	/*get the current working directory */
 	if (provided_output_dir_flag)
 		strcpy(pwd, provided_output_dir);
-	else if (!getcwd(pwd, MAX_PATH_LEN)) {
+	else if (!getcwd(pwd, PATH_MAX)) {
 		printe("\n[Error] getcwd failed with: %s\n", strerror(errno));
 		goto end;
 	}
@@ -435,9 +434,9 @@ int main(int argc, char *argv[])
 	add_end_slash(pwd);
 
 	if (quiet_flag) {
-		char tmp_path[MAX_PATH_LEN];
+		char tmp_path[PATH_MAX];
 
-		safestrncpy(tmp_path, pwd, MAX_PATH_LEN - strlen(QUIET_LOG_FILE));
+		safestrncpy(tmp_path, pwd, PATH_MAX - strlen(QUIET_LOG_FILE));
 		strcat(tmp_path, QUIET_LOG_FILE);
 		printe("[Hint] Quiet mode - All messages will now end up in %s\n", tmp_path);
 		redirectlog(tmp_path);
@@ -474,12 +473,12 @@ int main(int argc, char *argv[])
 	 */
 	if (optind < argc) {	/* there is still the path as in vobcopy-0.2.0 */
 		provided_input_dir_flag = true;
-		if (strlen(argv[optind]) >= MAX_PATH_LEN) {
+		if (strlen(argv[optind]) >= PATH_MAX) {
 			/*Seriously? "_Bloody_ path"?*/
 			printe("\n[Error] Bloody path to long '%s'\n", argv[optind]);
 			goto end;
 		}
-		safestrncpy(provided_input_dir, argv[optind], MAX_PATH_LEN);
+		safestrncpy(provided_input_dir, argv[optind], PATH_MAX);
 	}
 
 	if (provided_input_dir_flag) {	/*the path has been given to us */
@@ -508,7 +507,7 @@ int main(int argc, char *argv[])
 
 	if (!mounted)
 		/*see if the path given is a iso file or a VIDEO_TS dir */
-		safestrncpy(dvd_path, provided_input_dir, MAX_PATH_LEN);
+		safestrncpy(dvd_path, provided_input_dir, PATH_MAX);
 
 	/*
 	 * Is the path correct
@@ -531,7 +530,7 @@ int main(int argc, char *argv[])
 	 */
 	if (provided_dvd_name_flag) {
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
+		safestrncpy(dvd_name, provided_dvd_name, PATH_MAX);
 	}
 	else /*Error message is printed out by the function.*/
 		if (!get_dvd_name(dvd_path, dvd_name))
@@ -690,7 +689,7 @@ int main(int argc, char *argv[])
 
 	if (mirror_flag) {
 		if (provided_output_dir_flag)
-			safestrncpy(pwd, provided_output_dir, MAX_PATH_LEN);
+			safestrncpy(pwd, provided_output_dir, PATH_MAX);
 		mirror(dvd_name, pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
 		       dvd, block_count);
@@ -747,7 +746,7 @@ int main(int argc, char *argv[])
 	/*if the user has given a name for the file */
 	if (provided_dvd_name_flag && !stdout_flag) {
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, MAX_PATH_LEN);
+		safestrncpy(dvd_name, provided_dvd_name, PATH_MAX);
 	}
 
 	partcount    = 0;
@@ -950,8 +949,8 @@ int add_end_slash(char *path)
 int make_output_path(char *pwd, char *name, char *dvd_name, int titleid, int partcount)
 {
 	char temp[5];
-	safestrncpy(name, pwd, MAX_PATH_LEN);
-	strncat(name, dvd_name, MAX_PATH_LEN);
+	safestrncpy(name, pwd, PATH_MAX);
+	strncat(name, dvd_name, PATH_MAX);
 
 	sprintf(temp, "%d", titleid);
 	strcat(name, temp);
