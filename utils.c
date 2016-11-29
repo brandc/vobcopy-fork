@@ -39,7 +39,6 @@ const long long MEGA = (1024LL * 1024LL);
 const long long GIGA = (1024LL * 1024LL * 1024LL);
 
 const char *QUIET_LOG_FILE = "vobcopy.bla";
-const size_t MAX_PATH_LEN = 255;
 
 /*Confident this breaks some preprocessor magic*/
 #include <stdarg.h>
@@ -136,17 +135,17 @@ char *strcasestr(const char *haystack, const char *needle)
 	needlelen   = strlen(needle);
 	haystacklen = strlen(haystack);
 	for (i = 0; i < haystacklen; i++) {
-		for (j = 0; (j < needlelen) && ((i+j) > haystacklen); j++) {
+		for (j = 0; (j < needlelen) && ((i+j) < haystacklen); j++) {
 			if (lower2upper(haystack[i+j]) != lower2upper(needle[j]))
 				break;
 		}
 
-		if ((i+j) > haystacklen)
+		if (j == needlelen) {
+			if (lower2upper(haystack[i+j-1]) == lower2upper(needle[j-1])) {
+				return ((char*)haystack)+i+j-1;
+			}
+		} else if ((i+j) > haystacklen)
 			break;
-		else if (j == (needlelen-1)) {
-			if (lower2upper(haystack[i+j]) == lower2upper(needle[j]))
-				return ((char*)haystack)+i+j;
-		}
 	}
 
 	return NULL;
@@ -338,15 +337,16 @@ bool have_access(char *pathname, bool prompt)
 		case ENOENT:
 			break;
 		default:
-			die("[Error] REPORT have_access: %s\n", strerror(errno));
+			die("[Error] REPORT have_access path %s error: %s\n", pathname, strerror(errno));
 		}
 	} else if (!overwrite_all_flag && prompt) {
-		printe("[Error] %s exists....\n", pathname);
+		printe("\n[Error] %s exists....\n", pathname);
 		op = get_option("[Hint] Please choose [o]verwrite, "
 				"[x]overwrite all, or [q]uit: ", "oxq");
 		switch (op) {
 		case 'o':
 		case 'x':
+			overwrite_all_flag = true;
 			break;
 		case 'q':
 		case 's':
@@ -359,15 +359,26 @@ bool have_access(char *pathname, bool prompt)
 	return true;
 }
 
-struct dirent *find_dir_entry(DIR *dir, char *name)
+/*Not thread safe*/
+char *find_listing(char *path, char *name)
 {
-	struct dirent *ret;
+	DIR *dir;
+	struct dirent *entry;
+	static char ret[MAX_PATH_LEN];
 
-	rewinddir(dir);
-	while (ret = readdir(dir))
-		if (strcasestr(ret->d_name, name))
+	dir = opendir(path);
+	if (!dir)
+		return NULL;
+	memset(&ret, 0, sizeof(ret));
+	while ((entry = readdir(dir))) {
+		if (strcasestr(entry->d_name, name)) {
+			safestrncpy(ret, entry->d_name, MAX_PATH_LEN);
+			closedir(dir);
 			return ret;
+		}
+	}
 
+	closedir(dir);
 	return NULL;
 }
 

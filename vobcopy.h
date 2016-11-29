@@ -237,6 +237,13 @@
 
 #include "dvd.h"
 
+#include <errno.h>
+#include <limits.h>
+
+#if !defined(MAX_PATH_LEN)
+	#define MAX_PATH_LEN PATH_MAX
+#endif
+
 /*vobcopy.c*/
 char *name;
 bool force_flag;
@@ -263,7 +270,6 @@ extern const long long MEGA;
 extern const long long GIGA;
 
 const char *QUIET_LOG_FILE;
-extern const size_t MAX_PATH_LEN;
 extern const int O_DETECTED_FLAG;
 
 void printe(char *str, ...);
@@ -282,10 +288,11 @@ long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
 char *strcasestr(const char *haystack, const char *needle);
 int open_partial(char *filename);
-struct dirent *find_dir_entry(DIR *dir, char *name);
+char *find_listing(char *path, char *name);
+bool have_access(char *pathname, bool prompt);
 
 /*mirror.c*/
-void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
 	    dvd_reader_t *dvd, int block_count);
 

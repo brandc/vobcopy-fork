@@ -533,36 +533,36 @@ int get_device_on_your_own( char *path, char *device )
 
 /******************* get the whole vob size via stat() ******************/
 /*Case isn't always consistent, which is why a lot in this function doesn't look like it's needed but actually is.*/
-off_t get_vob_size(int title, char *dvd_dir)
+off_t get_vob_size(int title, char *dvd_path)
 {
+	char vob_name[MAX_PATH_LEN];
 	char vob_path[MAX_PATH_LEN];
-	char search_path[MAX_PATH_LEN];
+	char stat_path[MAX_PATH_LEN];
 
-	DIR *dir;
+	char *name;
 	int vob_part;
 	struct stat buf;
 	off_t  vob_size;
-	struct dirent *entry;
 
-	dir   = opendir(dvd_dir);
-	entry = find_dir_entry(dir, "VIDEO_TS");
-	/*Set up path for stating*/
-	snprintf(vob_path, MAX_PATH_LEN, "%s/%s/", dvd_dir, entry->d_name);
-	closedir(dir);
+	name = find_listing(dvd_path, "VIDEO_TS");
+	if (!name)
+		die("[Error] Couldn't find listing with dvd_path \"%s\"!\n", dvd_path);
+	snprintf(vob_path, MAX_PATH_LEN, "%s/%s/", dvd_path, name);
 
 	vob_size = 0;
-	dir = opendir(vob_path);
 	/*Part 0 of a vob is basically meaningless for some reason.*/
 	/*9 is the highest part number for a vob*/
 	for (vob_part = 1; vob_part < 10 ;vob_part++) {
-		snprintf(search_path, MAX_PATH_LEN, "%s/VTS_%.2d_%d.VOB", vob_path, title, vob_part);
-		if (!(entry = find_dir_entry(dir, search_path)))
+		snprintf(vob_name, MAX_PATH_LEN, "VTS_%.2d_%d.VOB", title, vob_part);
+		if (!(name = find_listing(vob_path, vob_name)))
 			break;
-		if (stat(entry->d_name, &buf))
+
+		/*Now stat the result*/
+		snprintf(stat_path, MAX_PATH_LEN, "%s/%s", vob_path, name);
+		if (stat(stat_path, &buf))
 			break;
 		vob_size += buf.st_size;
 	}
-	closedir(dir);
 
 	return vob_size;
 }

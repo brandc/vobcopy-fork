@@ -35,11 +35,10 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 /*----------Why exactly does mirroring the disk take so much code?---------*/
 /*=========================================================================*/
-void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
 	    dvd_reader_t *dvd, int block_count)
 {
-	DIR *dir;
 	struct dirent *directory;
 	struct stat fileinfo;
 
@@ -50,6 +49,7 @@ void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
+	DIR* dir;
 	char video_ts_dir[MAX_PATH_LEN];
 	char number[8];
 	char input_file[MAX_PATH_LEN];
@@ -57,38 +57,31 @@ void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	int i, start, title_nr = 0;
 	off_t file_size;
 	double tmp_i = 0, tmp_file_size = 0;
+	char *name;
+	char dvd_path[MAX_PATH_LEN];
 	char d_name[MAX_PATH_LEN];
 
-	safestrncpy(name, pwd, MAX_PATH_LEN - 34);
-	strncat(name, dvd_name, 33);
+	memset(&dvd_path, 0, sizeof(dvd_path));
+	safestrncpy(dvd_path, cwd, MAX_PATH_LEN - 34);
+	strncat(dvd_path, dvd_name, 33);
 
 	if (!stdout_flag) {
-		makedir(name);
-
-		strcat(name, "/VIDEO_TS/");
-
-		makedir(name);
-
-		printe("[Info] Writing files to this dir: %s\n", name);
+		makedir(dvd_path);
+		strcat(dvd_path, "/VIDEO_TS/");
+		makedir(dvd_path);
+		printe("[Info] Writing files to this dir: %s\n", dvd_path);
 	}
 
-	/*TODO: substitute with open_dir function */
-	safestrncpy(video_ts_dir, provided_input_dir, MAX_PATH_LEN);
-	strcat(video_ts_dir, "video_ts");	/*it's either video_ts */
-	dir = opendir(video_ts_dir);	/*or VIDEO_TS */
-	if (dir == NULL) {
-		strncpy(video_ts_dir, provided_input_dir, MAX_PATH_LEN);
-		strcat(video_ts_dir, "VIDEO_TS");
-		dir = opendir(video_ts_dir);
-		if (dir == NULL) {
-			printe("[Error] Hmm, weird, the dir video_ts|VIDEO_TS on the dvd couldn't be opened\n"
-			       "[Error] The dir to be opened was: %s\n"
-			       "[Hint] Please mail me what your vobcopy call plus -v -v spits out\n",
-			       video_ts_dir
-			);
-
-			return;
-		}
+	name = find_listing(provided_input_dir, "VIDEO_TS");
+	if (!name) {
+		printe("[Error] Could not find VIDEO_TS directory!\n");
+		return;
+	}
+	snprintf(video_ts_dir, MAX_PATH_LEN, "%s/%s", provided_input_dir, name);
+	dir = opendir(video_ts_dir);
+	if (!dir) {
+		printe("[Error] Could not open VIDEO_TS directory at %s for reason: %s\n", video_ts_dir, strerror(errno));
+		return;
 	}
 
 	directory = readdir(dir);	/* thats the . entry */
@@ -97,11 +90,11 @@ void mirror(char *dvd_name, char *pwd, off_t pwd_free, bool onefile_flag,
 	while ((directory = readdir(dir)) != NULL) {	/*main mirror loop */
 		dvd_file = NULL;
 
-		safestrncpy(output_file, name, MAX_PATH_LEN);
 		/*in dvd specs it says it must be uppercase VIDEO_TS/VTS...
 		   but iso9660 mounted dvd's sometimes have it lowercase */
 		safestrncpy(d_name, directory->d_name, MAX_PATH_LEN);
 		capitalize(d_name, MAX_PATH_LEN);
+		snprintf(output_file, MAX_PATH_LEN, "%s/%s", cwd, d_name);
 
 		/*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it */
 		if (onefile_flag) {

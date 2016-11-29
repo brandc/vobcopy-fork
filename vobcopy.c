@@ -50,8 +50,6 @@
 
 #include "vobcopy.h"
 
-extern int errno;
-
 char *name;
 time_t starttime;
 bool force_flag = false;
@@ -120,7 +118,8 @@ int main(int argc, char *argv[])
 	bool onefile_flag             = false;
 	bool titleid_flag             = false;
 	bool large_file_flag          = false;
-	bool longest_title_flag       = false;
+	/*default behavior*/
+	bool longest_title_flag       = true;
 	bool provided_dvd_name_flag   = false;
 	bool provided_input_dir_flag  = false;
 	bool provided_output_dir_flag = false;
@@ -294,6 +293,7 @@ int main(int argc, char *argv[])
 			if (!isdigit((int)*optarg))
 				die("[Error] The thing behind -n has to be a number! \n");
 
+			longest_title_flag = false;
 			sscanf(optarg, "%i", &titleid);
 			titleid_flag = true;
 			break;
@@ -504,7 +504,6 @@ int main(int argc, char *argv[])
 		}
 		if (result == 0)
 			mounted = false;
-
 		if (result == 1)
 			mounted = true;
 	} else {/*need to get the path and device ourselves ( oyo = on your own ) */
@@ -536,6 +535,9 @@ int main(int argc, char *argv[])
 		goto end;
 	}
 
+	/*Get space used*/
+	disk_vob_size = get_used_space(dvd_path);
+
 	/*
 	 * this here gets the dvd name
 	 */
@@ -546,7 +548,6 @@ int main(int argc, char *argv[])
 	else /*Error message is printed out by the function.*/
 		if (!get_dvd_name(dvd_path, dvd_name))
 			goto end;
-			
 
 	printe("[Info] Name of the dvd: %s\n", dvd_name);
 
@@ -575,10 +576,8 @@ int main(int argc, char *argv[])
 			most_chapters = i;
 	}
 
-	if (longest_title_flag) {	/*no title specified (-n ) */
+	if (longest_title_flag) /*no title specified (-n ) */
 		titleid = get_longest_title(dvd);
-		printe("[Info] longest title %d.\n", titleid);
-	}
 
 	if (!titleid_flag) /*no title specified (-n ) */
 		titleid = most_chapters + 1;	/*they start counting with 0, I with 1... */
@@ -642,6 +641,7 @@ int main(int argc, char *argv[])
 		add_end_slash(provided_input_dir);
 		disk_vob_size = get_used_space(provided_input_dir);
 	} else if (mounted && !mirror_flag) {
+		printe("[Info] Checking title %d\n", titleid);
 		vob_size = (get_vob_size(titleid, provided_input_dir)) - get_sector_offset(start_sector) - get_sector_offset(end_sector);
 
 		if ((!vob_size) || (vob_size > (9*GIGA))) {
@@ -701,6 +701,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (mirror_flag) {
+		if (provided_output_dir_flag)
+			safestrncpy(pwd, provided_output_dir, MAX_PATH_LEN);
 		mirror(dvd_name, pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
 		       dvd, block_count);
@@ -846,7 +848,7 @@ int main(int argc, char *argv[])
 						   (off_t)max_filesize_in_blocks_summed - (off_t)angle_blocks_skipped);
 			}
 
-			while ((blocks = DVDReadBlocks(dvd_file, (offset + start_sector), file_block_count, bufferin)) <= 0 && tries < 10) {
+			while (((blocks = DVDReadBlocks(dvd_file, (offset + start_sector), file_block_count, bufferin)) <= 0) && tries < 10) {
 				if (tries == 9) {
 					offset += file_block_count;
 					skipped_blocks += 1;
@@ -1017,6 +1019,8 @@ int make_output_path(char *pwd, char *name, char *dvd_name, int titleid, int par
 	}
 	strcat(name, ".vob");
 
+	if (!have_access(name, true))
+		die("[Error] No access to %s\n", name);
 	printe("\n[Info] Outputting to %s\n", name);
 	return 0;
 }
@@ -1092,8 +1096,9 @@ void progressUpdate(int starttime, int cur, int tot, int force)
 
 	printf("\r");
 	/*calc it this way so it's easy to change later */
-	/*2 for brackets, 1 for space, 5 for percent complete, 1 for space, 6 for time left, 1 for space, 1 for 100.0%*/
-	barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1;
+	/*2 for brackets, 1 for space, 5 for percent complete, 1 for space,
+	 *6 for time left, 1 for space, 1 for 100.0%, 4 for status bar bug*/
+	barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1 - 4;
 	barChar = tot / barLen;
 	percentComplete = (float)((float)cur / (float)tot * 100.f);
 	percentLeft = 100 - percentComplete;
