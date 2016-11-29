@@ -37,7 +37,7 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd, int block_count)
+	    dvd_reader_t *dvd)
 {
 	struct dirent *directory;
 	struct stat fileinfo;
@@ -45,7 +45,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	int streamout;
 
 	dvd_file_t *dvd_file = NULL;
-	unsigned char bufferin[DVD_VIDEO_LB_LEN * BLOCK_COUNT];
+	unsigned char bufferin[DVD_SECTOR_SIZE];
 
 	/* no dirs behind -1, -2 ... since its all in one dir */
 	DIR* dir;

@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	extern int optind, optopt;
 
 	int op, i, num_of_files, partcount;
-	int streamout, block_count;
+	int streamout;
 
 	unsigned char *bufferin = NULL;
 	long long unsigned int end_sector   = 0;
@@ -92,7 +92,6 @@ int main(int argc, char *argv[])
 
 	int dvd_count           = 0;
 	int paths_taken         = 0;
-	int fast_factor         = 1; /*What does this magic "1" mean?*/
 	int options_char        = 0;
 	int watchdog_minutes    = 0;
 	int alternate_dir_count = 0;
@@ -111,7 +110,6 @@ int main(int argc, char *argv[])
 	bool info_flag                = false;
 	bool quiet_flag               = false;
 	bool stdout_flag              = false;
-	bool fast_switch              = false;
 	bool mirror_flag              = false;
 	bool verbose_flag             = false;
 	bool onefile_flag             = false;
@@ -148,7 +146,7 @@ int main(int argc, char *argv[])
 	provided_output_dir = palloc(sizeof(char), PATH_MAX);
 	provided_input_dir  = palloc(sizeof(char), PATH_MAX);
 	logfile_path        = palloc(sizeof(char), PATH_MAX);
-	bufferin            = palloc(sizeof(unsigned char), (DVD_VIDEO_LB_LEN * BLOCK_COUNT));
+	bufferin            = palloc(sizeof(unsigned char), (DVD_SECTOR_SIZE));
 
 	alternate_output_dir = palloc(sizeof(char*), PATH_MAX);
 	for (i = 0; i < 4; i++)
@@ -645,11 +643,6 @@ int main(int argc, char *argv[])
 
 	pwd_free = get_free_space(pwd);
 
-	if (fast_switch)
-		block_count = fast_factor;
-	else
-		block_count = 1;
-
 	set_signal_handlers();
 
 	if (watchdog_minutes) {
@@ -692,7 +685,7 @@ int main(int argc, char *argv[])
 			safestrncpy(pwd, provided_output_dir, PATH_MAX);
 		mirror(dvd_name, pwd, pwd_free, onefile_flag, force_flag,
 		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
-		       dvd, block_count);
+		       dvd);
 
 		goto end;
 	}
@@ -719,7 +712,7 @@ int main(int argc, char *argv[])
 	file_size_in_blocks = DVDFileSize(dvd_file);
 
 	if (vob_size == (-get_sector_offset(start_sector) - get_sector_offset(end_sector))) {
-		vob_size = ((off_t) (file_size_in_blocks) * (off_t) DVD_VIDEO_LB_LEN) -
+		vob_size = ((off_t) (file_size_in_blocks) * (off_t) DVD_SECTOR_SIZE) -
 			   get_sector_offset(start_sector) - get_sector_offset(end_sector);
 		if (verbosity_level >= 1)
 			printe("[Info] Vob_size was 0\n");
@@ -730,12 +723,12 @@ int main(int argc, char *argv[])
 		printe("\n[Info] Difference between vobsize read from cd and size returned from libdvdread:\n");
 		/*printe("vob_size (stat) = %lu\nlibdvdsize      = %lu\ndiff            = %lu\n", TODO:the diff returns only crap...
 		   vob_size, 
-		   ( off_t ) ( file_size_in_blocks ) * ( off_t ) DVD_VIDEO_LB_LEN, 
-		   ( off_t ) vob_size - ( off_t ) ( ( off_t )( file_size_in_blocks ) * ( off_t ) ( DVD_VIDEO_LB_LEN ) ) ); */
+		   ( off_t ) ( file_size_in_blocks ) * ( off_t ) DVD_SECTOR_SIZE, 
+		   ( off_t ) vob_size - ( off_t ) ( ( off_t )( file_size_in_blocks ) * ( off_t ) ( DVD_SECTOR_SIZE ) ) ); */
 		printe("[Info] Vob_size (stat) = %lu\n[Info] libdvdsize      = %lu\n",
 			(long unsigned int)vob_size,
 			(long unsigned int)((off_t) (file_size_in_blocks) *
-					    (off_t) DVD_VIDEO_LB_LEN));
+					    (off_t) DVD_SECTOR_SIZE));
 	}
 
 	/*********************
@@ -814,7 +807,7 @@ int main(int argc, char *argv[])
 		/* this here is the main copy part */
 
 		printe("\n");
-		memset(bufferin, 0, (BLOCK_COUNT * DVD_VIDEO_LB_LEN * sizeof(unsigned char)));
+		memset(bufferin, 0, (DVD_SECTOR_SIZE * sizeof(unsigned char)));
 
 		/*dvd context, starting sector, ending sector, retries, output*/
 		copy_vob(dvd_file, start_sector, end_sector, 10, streamout);

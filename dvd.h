@@ -7,10 +7,3 @@ off_t get_vob_size(int , char *);
 /* int dvdtime2msec(dvd_time_t *); */
 int get_longest_title( dvd_reader_t * );
 
-typedef struct {
-	int hour;
-	int minute;
-	int second;
-	int usec;
-} playback_time_t;
-
