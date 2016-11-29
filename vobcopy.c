@@ -361,18 +361,6 @@ int main(int argc, char *argv[])
 			overwrite_all_flag = true;
 			break;
 
-		case 'F':	/*Fast-switch */
-			if (!isdigit((int)*optarg))
-				die("[Error] The thing behind -F has to be a number! \n");
-			sscanf(optarg, "%i", &fast_factor);
-			if (fast_factor > BLOCK_COUNT) {	/*atm is BLOCK_COUNT == 64 */
-				printe("[Hint] The largest value for -F is %d at the moment - used that one...\n", BLOCK_COUNT);
-				fast_factor = BLOCK_COUNT;
-			}
-
-			fast_switch = true;
-			break;
-
 		case 'I':	/*info, doesn't do anything, but simply prints some infos
 				   ( about the dvd ) */
 			info_flag = true;
@@ -829,53 +817,8 @@ int main(int argc, char *argv[])
 		printe("\n");
 		memset(bufferin, 0, (BLOCK_COUNT * DVD_VIDEO_LB_LEN * sizeof(unsigned char)));
 
-		file_block_count = block_count;
-		starttime = time(NULL);
-		for (;(offset + (off_t) start_sector) < ((off_t) file_size_in_blocks - (off_t) end_sector) &&
-		      offset - (off_t) max_filesize_in_blocks_summed - (off_t) angle_blocks_skipped < max_filesize_in_blocks;
-		      offset += file_block_count) {
-			int tries = 0, skipped_blocks = 0;
-			/* Only read and write as many blocks as there are left in the file */
-			if ((offset + file_block_count + (off_t) start_sector) > ((off_t) file_size_in_blocks - (off_t) end_sector)) {
-				file_block_count = (off_t)file_size_in_blocks - (off_t)end_sector - offset - (off_t)start_sector;
-			}
-
-			if (offset + file_block_count -
-			    (off_t) max_filesize_in_blocks_summed -
-			    (off_t) angle_blocks_skipped >
-			    max_filesize_in_blocks) {
-				file_block_count = max_filesize_in_blocks - (offset + file_block_count -
-						   (off_t)max_filesize_in_blocks_summed - (off_t)angle_blocks_skipped);
-			}
-
-			while (((blocks = DVDReadBlocks(dvd_file, (offset + start_sector), file_block_count, bufferin)) <= 0) && tries < 10) {
-				if (tries == 9) {
-					offset += file_block_count;
-					skipped_blocks += 1;
-					overall_skipped_blocks += 1;
-					tries = 0;
-				}
-				/*if( verbosity_level >= 1 ) 
-				 *	printe("[Warn] Had to skip %d blocks (reading block %d)! \n ",skipped_blocks, i ); */
-				tries++;
-			}
-
-			if (verbosity_level >= 1 && skipped_blocks > 0)
-				printe("[Warn] Had to skip (couldn't read) %d blocks (before block %d)! \n ",
-					skipped_blocks,
-					offset);
-
-			if (write(streamout, bufferin, DVD_VIDEO_LB_LEN * blocks) < 0)
-				die("\n[Error] write error: %s\n", strerror(errno));
-
-			/*this is for people who report that it takes vobcopy ages to copy something */
-			/* TODO */
-
-			progressUpdate(starttime,
-				       (int)offset / BLOCK_SIZE,
-				       (int)(file_size_in_blocks - start_sector - end_sector) / BLOCK_SIZE,
-				       false);
-		}
+		/*dvd context, starting sector, ending sector, retries, output*/
+		copy_vob(dvd_file, start_sector, end_sector, 10, streamout);
 
 		if (!stdout_flag) {
 			if (fdatasync(streamout) < 0)
@@ -1056,8 +999,7 @@ void usage(char *program_name)
 		"[-O <single_file_name1,single_file_name2, ...>] \n"
 		"[-q (quiet)]\n"
 		"[-w <watchdog-minutes>]\n"
-		"[-x (overwrite all)]\n"
-		"[-F <fast-factor:1..64>]\n",
+		"[-x (overwrite all)]\n",
 		program_name
 	);
 }
@@ -1100,9 +1042,9 @@ void progressUpdate(int starttime, int cur, int tot, int force)
 	 *6 for time left, 1 for space, 1 for 100.0%, 4 for status bar bug*/
 	barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1 - 4;
 	barChar = tot / barLen;
-	percentComplete = (float)((float)cur / (float)tot * 100.f);
-	percentLeft = 100 - percentComplete;
-	numChars = cur / barChar;
+	percentComplete = (((float)cur / (float)tot) * 100.f);
+	percentLeft = 100.f - percentComplete;
+	numChars = ((float)cur / (float)barChar);
 
 	/*guess remaining time */
 	timeSoFar = curtime - starttime;

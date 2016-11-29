@@ -32,6 +32,7 @@
 #endif
 
 #define DVDCSS_VERBOSE 1
+/*Blocks to read at once for some reason*/
 #define BLOCK_COUNT 64
 #define MAX_STRING  81
 #define MAX_DIFFER  2000
@@ -290,6 +291,7 @@ char *strcasestr(const char *haystack, const char *needle);
 int open_partial(char *filename);
 char *find_listing(char *path, char *name);
 bool have_access(char *pathname, bool prompt);
+size_t copy_vob(dvd_file_t *dvd_file, int start_sector, int sectors, int retries, int outfd);
 
 /*mirror.c*/
 void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,

@@ -463,4 +463,45 @@ int open_partial(char *filename)
 	return fd;
 }
 
+size_t copy_vob(dvd_file_t *dvd_file, int start_sector, int sectors, int retries, int outfd)
+{
+	int tries;
+	int sector;
+	time_t starttime;
+	int total_sectors;
+	int skipped_sectors;
+	unsigned char buffer[DVD_SECTOR_SIZE];
 
+	total_sectors  = DVDFileSize(dvd_file);
+	if ((!sectors) && (total_sectors < sectors))
+		total_sectors = sectors;
+	total_sectors -= start_sector;
+
+	skipped_sectors = 0;
+	starttime       = time(NULL);
+	memset(&buffer, 0, sizeof(buffer));
+	/*!sectors translates to, continue the loop till the end.*/
+	for (sector = start_sector; (sector < total_sectors); sector++) {
+		tries = 0;
+
+		/*dvd_file, current_sector, sectors at once, buffer*/
+		while ((DVDReadBlocks(dvd_file, sector, 1, buffer) < 1) && (tries < retries))
+			tries++;
+
+		if (tries == retries) {
+			skipped_sectors++;
+			printe("\n[Error] Skipped sector %d\n", sector);
+			continue;
+		}
+
+		if (write(outfd, buffer, DVD_SECTOR_SIZE) != DVD_SECTOR_SIZE) {
+			printe("\n[Error] Failed to write sector to output file because of: %s\n", strerror(errno));
+			continue;
+		}
+
+		progressUpdate(starttime, sector, total_sectors, false);
+	}
+
+	/*Calculate the actual amount of data wrote*/
+	return (sectors - skipped_sectors) * DVD_SECTOR_SIZE;
+}

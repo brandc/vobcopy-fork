@@ -245,55 +245,8 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 			if (verbosity_level > 1)
 				printe("[Info] Start of %s at %d blocks \n", output_file, start);
 
-			starttime = time(NULL);
-			for (i = start; (i - start) * DVD_VIDEO_LB_LEN < file_size; i += block_count) {
-				int tries = 0, skipped_blocks = 0;
-				/* Only read and write as many blocks as there are left in the file */
-				if ((i - start + block_count) * DVD_VIDEO_LB_LEN > file_size)
-					block_count = (file_size / DVD_VIDEO_LB_LEN) - (i - start);
+			copy_vob(dvd_file, start, 0, 10, streamout);
 
-				while ((blocks = DVDReadBlocks(dvd_file, i, block_count, bufferin)) <= 0 && tries < 10) {
-					if (tries == 9) {
-						i                      += block_count;
-						skipped_blocks         += 1;
-						overall_skipped_blocks += 1;
-						tries                   = 0;
-					}
-					tries++;
-				}
-
-				if (verbosity_level >= 1 && skipped_blocks > 0)
-					printe("[Warn] Had to skip (couldn't read) %d blocks (before block %d)! \n ", skipped_blocks, i);
-
-				/*TODO: this skipping here writes too few bytes to the output */
-
-				if (write(streamout, bufferin, (DVD_VIDEO_LB_LEN * blocks)) == -1) {
-					printe("\n[Error] Error writing to %s \n"
-					       "[Error] Error: %s, errno: %d \n",
-					       output_file,
-					       strerror(errno),
-					       errno
-					);
-					if (dvd_file)
-						DVDCloseFile(dvd_file);
-					closedir(dir);
-					return;
-				}
-
-				/*progression bar */
-				/*this here doesn't work with -F 10 */
-				/*                      if( !( ( ( ( i-start )+1 )*DVD_VIDEO_LB_LEN )%MEGA ) ) */
-				progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + DVD_SECTOR_SIZE), false);
-			}
-			/*this is just so that at the end it actually says 100.0% all the time... */
-			/*TODO: if it is correct to always assume it's 100% is a good question.... */
-			/*		printe("\r%4.0fMB of %4.0fMB written "),
-						( ( tmp_i+1 )*DVD_VIDEO_LB_LEN )/MEGA,
-						( tmp_file_size+DVD_SECTOR_SIZE )/MEGA );
-					printe("( 100.0%% ) ") );
-			*/
-			progressUpdate(starttime, (int)(((i - start + 1) * DVD_VIDEO_LB_LEN)), (int)(tmp_file_size + DVD_SECTOR_SIZE), true);
-			start = i;
 			fputc('\n', stderr);
 			if (!stdout_flag) {
 				if (fdatasync(streamout) < 0) {
