@@ -33,8 +33,6 @@
 
 /*Allows libdvdcss to make it's presense known via stderr*/
 #define DVDCSS_VERBOSE 1
-/*Blocks to read at once for some reason*/
-#define MAX_STRING  81
 #define MAX_DIFFER  2000
 
 /*Standard C lib*/
@@ -55,7 +53,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/ioctl.h>
 #include <termios.h>
 
 #if ( defined( __unix__ ) || defined( unix )) && !defined( USG )
@@ -179,7 +176,9 @@ void set_signal_handlers();
 void watchdog_handler( int signal );
 void shutdown_handler( int signal );
 char *safestrncpy(char *dest, const char *src, size_t n);
-void progressUpdate( int starttime, int cur, int tot, int force );
+void progressUpdate(int starttime, int cur, int tot, int force);
+size_t rip_vob_file(dvd_file_t *dvd_file, unsigned int start_sector,
+		unsigned int sectors, unsigned int retries, int outfd);
 
 /*utils.c*/
 extern const long long DVD_SECTOR_SIZE;
@@ -189,32 +188,29 @@ extern const long long MEGA;
 extern const long long GIGA;
 
 const char *QUIET_LOG_FILE;
-extern const int O_DETECTED_FLAG;
 
 void printe(char *str, ...);
 void redirectlog(char *filename);
 off_t get_free_space(char *path);
 off_t get_used_space(char *path);
+int open_partial(char *filename);
 void rename_partial(char *input_file);
 void capitalize(char *str, size_t len);
 void die(const char *cause_of_death, ...);
+char *find_listing(char *path, char *name);
 void strrepl(char *str, char orig, char new);
 void *palloc(size_t element, size_t elements);
 long long unsigned int suffix2llu(char input);
+bool have_access(char *pathname, bool prompt);
+long long unsigned opt2llu(char *opt, char optchar);
 char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
-long long unsigned int opt2llu(char *opt, char optchar);
 char *safestrncpy(char *dest, const char *src, size_t n);
 char *strcasestr(const char *haystack, const char *needle);
-int open_partial(char *filename);
-char *find_listing(char *path, char *name);
-bool have_access(char *pathname, bool prompt);
-size_t copy_vob(dvd_file_t *dvd_file, unsigned int start_sector, unsigned int sectors, unsigned int retries, int outfd);
 
 /*mirror.c*/
 void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
-	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd);
+	    bool stdout_flag, char *onefile, char *provided_input_dir, dvd_reader_t *dvd);
 
 #if defined(__APPLE__) && defined(__GNUC__)
 int fdatasync( int value );
