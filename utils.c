@@ -113,17 +113,17 @@ char *strcasestr(const char *haystack, const char *needle)
 	needlelen   = strlen(needle);
 	haystacklen = strlen(haystack);
 	for (i = 0; i < haystacklen; i++) {
-		for (j = 0; (j < needlelen) && ((i+j) < haystacklen); j++) {
-			if (toupper(haystack[i+j]) != toupper(needle[j]))
+		for (j = 0;; j++) {
+			/*If we've gotten to the end of haystack, there is no match.*/
+			if ((i+j+1) > haystacklen)
+				return NULL;
+			/*Check if the two strings differ, if so, check another part of haystack*/
+			else if (toupper(haystack[i+j]) != toupper(needle[j]))
 				break;
-		}
-
-		if (j == needlelen) {
-			if (toupper(haystack[i+j-1]) == toupper(needle[j-1])) {
+			/*If we've gotten to the end of needle, we're done*/
+			else if ((j+1) == needlelen)
 				return ((char*)haystack)+i;
-			}
-		} else if ((i+j) > haystacklen)
-			break;
+		}
 	}
 
 	return NULL;
@@ -154,7 +154,7 @@ char get_option(char *options_str, const char *opts)
 
 
 
-/*Zero's string, and then copies the source*/
+/*Zero's string, and then copies the source with one space for null*/
 char *safestrncpy(char *dest, const char *src, size_t n)
 {
 	memset(dest, 0, n);
@@ -186,7 +186,7 @@ long long unsigned int suffix2llu(char input)
 		die("[Error] Wrong suffix behind -b, only b,k,m or g \n");
 	}
 
-	die("suffix2llu, Impossible error\n");
+	/*impossible return*/
 	return 0;
 }
 
@@ -337,7 +337,7 @@ bool have_access(char *pathname, bool prompt)
 	return true;
 }
 
-/*Not thread safe*/
+/*Finds a given file in a case insensitive way*/
 char *find_listing(char *path, char *name)
 {
 	DIR *dir;
