@@ -102,22 +102,20 @@ bool get_dvd_name(const char *device, char *title)
  */
 int get_device(char *path, char *device)
 {
-#if ( !defined( __sun ) )
-	FILE *tmp_streamin;
-	char  tmp_bufferin[ MAX_STRING ];
-	char  tmp_path[ 256 ];
-	int l = 0;
-#endif
-
 #if (defined(__linux__))
 	struct mntent* lmount_entry;
-#endif
-
-#if ( defined( __sun ) )
+#elif ( defined( __sun ) )
 	FILE  *mnttab_fp;
 	char *mnt_special;
 	int mntcheck;
 	char *new_device;
+#endif
+
+#if ( !defined( __sun ) )
+	FILE *tmp_streamin;
+	char  tmp_bufferin[ PATH_MAX ];
+	char  tmp_path[ PATH_MAX ];
+	int l = 0;
 #endif
 
 	char  *pointer;
@@ -147,20 +145,20 @@ int get_device(char *path, char *device)
 		/* look through /etc/mtab to see if it's actually mounted*/
 
 #if ( defined( USE_STATFS_FOR_DEV ) || defined( USE_STATVFS_FOR_DEV ) ) 
-#ifdef USE_STATFS_FOR_DEV
+#	ifdef USE_STATFS_FOR_DEV
 		if(!statfs(path, &buf))
-#else
+#	else
 		if(!statvfs(path, &buf))
-#endif
+#	endif
 		{
 			if(!strcmp(path, buf.f_mntonname)) {
 				mounted = true;
-#if defined(__FreeBSD__) && (__FreeBSD_Version > 500000)
+#	if defined(__FreeBSD__)
 				strcpy(device, buf.f_mntfromname);
-#else
+#	else
 				strcpy(device, "/dev/r");
 				strcat(device, buf.f_mntfromname + 5);
-#endif
+#	endif
 				return mounted;
 			}
 
@@ -180,9 +178,9 @@ int get_device(char *path, char *device)
 			return -1;
 		}
 
-		while ((mntcheck = getmntent(mnttab_fp, &mount_entry)) == 0) {
+		while (!(mntcheck = getmntent(mnttab_fp, &mount_entry))) {
 			/* check to see if our path is this entry */
-			if (strcmp(path, mount_entry.mnt_mountp) == 0) {
+			if (!strcmp(path, mount_entry.mnt_mountp)) {
 				char *new_device, *mnt_special;
 				if ( strstr( mount_entry.mnt_special, "/dsk/" ) == NULL ) {
 					printe("[Error] %s doesn't look like a disk device to me", mount_entry.mnt_special);
@@ -214,16 +212,17 @@ int get_device(char *path, char *device)
 			printe("[Error] Did not find mount %s in mnttab!\n", path );
 			return -1;
 		}
+	}
 #else
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * this is the code for the other-OSs, not solaris
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-#if (defined(__linux__)) 
+#	if (defined(__linux__)) 
 		if ((tmp_streamin = setmntent("/etc/mtab", "r"))) {
 			while ((lmount_entry = getmntent(tmp_streamin))) {
-				if (strcmp(lmount_entry->mnt_dir, path) == 0){
+				if (!strcmp(lmount_entry->mnt_dir, path)){
 					/* Found the mount point */
 					printe("[Info] Device %s mounted on %s\n", lmount_entry->mnt_fsname, lmount_entry->mnt_dir);
 					strcpy(device, lmount_entry->mnt_fsname);
@@ -238,7 +237,7 @@ int get_device(char *path, char *device)
 				 * /etc/fstab */
 				return mounted;
 		}
-#endif
+#	endif
 
 
 		if ((tmp_streamin = fopen("/etc/mtab", "r"))) {
@@ -253,17 +252,12 @@ int get_device(char *path, char *device)
 					  * mounted
 					  */
 
-		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
-		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin)) {
+		memset(tmp_bufferin, 0, sizeof(tmp_bufferin));
+		while(fgets( tmp_bufferin, PATH_MAX, tmp_streamin)) {
 			if(strstr(tmp_bufferin, tmp_path))
 				mounted = true;
 			fclose(tmp_streamin);
 		}
-#endif
-
-#if defined( __sun )
-	} /*The shear madness of this code spacing is astounding*/
-#else
 
 		/*read the device out of /etc/fstab*/
 		if (!(tmp_streamin = fopen( "/etc/fstab", "r" ))) {
@@ -275,9 +269,9 @@ int get_device(char *path, char *device)
 
 		strcpy(tmp_path, path);
 
-		memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+		memset(tmp_bufferin, 0, sizeof(tmp_bufferin));
 
-		while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin )) {
+		while(fgets( tmp_bufferin, PATH_MAX, tmp_streamin )) {
 			if ((pointer = strstr( tmp_bufferin, tmp_path))) {
 				if (isgraph((int) * (pointer + strlen(tmp_path))))
 					break; /* there is something behind the path name, 
@@ -310,7 +304,7 @@ int get_device(char *path, char *device)
 				device[l] = '\0';
 			}
 
-			memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
+			memset(tmp_bufferin, 0, sizeof(tmp_bufferin));
 		}
 
 		fclose(tmp_streamin);
@@ -320,8 +314,7 @@ int get_device(char *path, char *device)
 			return -1;
 		}
 	}
-
-#endif /*!defined( __sun )*/
+#endif
 	return mounted;
 }
 
@@ -431,7 +424,7 @@ int get_device_on_your_own( char *path, char *device )
 int get_device_on_your_own( char *path, char *device )
 {
 	FILE *tmp_streamin;
-	char  tmp_bufferin[MAX_STRING];
+	char  tmp_bufferin[PATH_MAX];
 /*	char  tmp_path[20];*/
 	int l         = 0;
 	int dvd_count = 0;
@@ -445,8 +438,8 @@ int get_device_on_your_own( char *path, char *device )
 	}
 
 	/* strcpy(tmp_path, "iso9660"); */
-	memset(tmp_bufferin, 0, MAX_STRING * sizeof(char));
-	while(fgets( tmp_bufferin, MAX_STRING, tmp_streamin))  {
+	memset(tmp_bufferin, 0, sizeof(tmp_bufferin));
+	while(fgets( tmp_bufferin, PATH_MAX, tmp_streamin))  {
 		/*if(strstr( tmp_bufferin, tmp_path)) */
 		if (strstr( tmp_bufferin, "iso9660") ||
 		    strstr( tmp_bufferin, "udf")     ||
@@ -510,7 +503,7 @@ int get_device_on_your_own( char *path, char *device )
 			path[l] = '\0';
 		}
 
-		memset( tmp_bufferin, 0, MAX_STRING * sizeof( char ) );
+		memset(tmp_bufferin, 0, sizeof(tmp_bufferin));
 		l = 0; /* for the next run
 			* we take the last entry in /etc/mtab since that has been 
 			* mounted the last and we assume that this is the
@@ -550,7 +543,7 @@ off_t get_vob_size(int title, char *dvd_path)
 	snprintf(vob_path, PATH_MAX, "%s/%s/", dvd_path, name);
 
 	vob_size = 0;
-	/*Part 0 of a vob is basically meaningless for some reason.*/
+	/*0 is where vob parts start*/
 	/*9 is the highest part number for a vob*/
 	for (vob_part = 1; vob_part < 10 ;vob_part++) {
 		snprintf(vob_name, PATH_MAX, "VTS_%.2d_%d.VOB", title, vob_part);
@@ -565,6 +558,56 @@ off_t get_vob_size(int title, char *dvd_path)
 	}
 
 	return vob_size;
+}
+
+/*returns sectors written*/
+size_t rip_vob_file(dvd_file_t *dvd_file, unsigned int start_sector, unsigned int sectors, unsigned int retries, int outfd)
+{
+	size_t sector;
+	ssize_t written;
+	time_t starttime;
+	int total_sectors;
+	unsigned int tries;
+	size_t skipped_sectors;
+	unsigned char buffer[DVD_SECTOR_SIZE];
+
+	if (sectors)
+		total_sectors  = sectors;
+	else
+		total_sectors = DVDFileSize(dvd_file);
+
+	skipped_sectors = 0;
+	starttime       = time(NULL);
+	memset(&buffer, 0, sizeof(buffer));
+	/*!sectors translates to, continue the loop till the end.*/
+	for (sector = start_sector; (sector < total_sectors); sector++) {
+		tries = 0;
+
+		/*dvd_file, current_sector, sectors at once, buffer*/
+		while ((DVDReadBlocks(dvd_file, sector, 1, buffer) < 1) && (tries < retries))
+			tries++;
+
+		if (tries == retries) {
+			skipped_sectors++;
+			printe("\n[Error] Skipped sector %d\n", sector);
+			continue;
+		}
+
+		written = write(outfd, buffer, DVD_SECTOR_SIZE);
+		if (written < 0) {
+			printe("\n[Error] write failed: %s\n", strerror(errno));
+			break;
+		} else if (written != DVD_SECTOR_SIZE) {
+			printe("\n[Error] Failed to write the full sector because: %s\n", strerror(errno));
+			break;
+		}
+
+		/*starttime, current sector relative to last, last sector, force printing of status bar*/
+		progressUpdate(starttime, (sector - start_sector), total_sectors, false);
+	}
+
+	/*Calculate the actual amount of data wrote*/
+	return (sectors - skipped_sectors);
 }
 
 /*dvdtime2msec and get_longest_title are copy-paste'd from lsdvd*/
