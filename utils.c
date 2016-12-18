@@ -23,12 +23,6 @@
 
 #include "vobcopy.h"
 
-#if defined(HAS_LARGEFILE) || defined (MAC_LARGEFILE)
-const int O_DETECTED_FLAG = O_LARGEFILE;
-#else
-const int O_DETECTED_FLAG = 0;
-#endif
-
 const long long BLOCK_SIZE          = 512LL; /*I believe this has more to do with POSIX*/
 const long long DVD_SECTOR_SIZE     = 2048LL;
 /*The first data block in the dvd is unused by the filesystem and reserved for the system*/
@@ -112,22 +106,6 @@ void capitalize(char *str, size_t len)
 }
 
 #if !defined( _GNU_SOURCE )
-/*Checks if lower case*/
-static bool is_lower(char c)
-{
-	if ((c >= 'a') && (c <= 'z'))
-		return true;
-	return false;
-}
-
-/*If the character is indeed lower case, it is made upper case*/
-static char lower2upper(char c)
-{
-	if (is_lower(c))
-		return (c - 'a') + 'A';
-	return c;
-}
-
 char *strcasestr(const char *haystack, const char *needle)
 {
 	size_t i, j, haystacklen, needlelen;
@@ -136,12 +114,12 @@ char *strcasestr(const char *haystack, const char *needle)
 	haystacklen = strlen(haystack);
 	for (i = 0; i < haystacklen; i++) {
 		for (j = 0; (j < needlelen) && ((i+j) < haystacklen); j++) {
-			if (lower2upper(haystack[i+j]) != lower2upper(needle[j]))
+			if (toupper(haystack[i+j]) != toupper(needle[j]))
 				break;
 		}
 
 		if (j == needlelen) {
-			if (lower2upper(haystack[i+j-1]) == lower2upper(needle[j-1])) {
+			if (toupper(haystack[i+j-1]) == toupper(needle[j-1])) {
 				return ((char*)haystack)+i;
 			}
 		} else if ((i+j) > haystacklen)
@@ -167,7 +145,7 @@ char get_option(char *options_str, const char *opts)
 		else
 			printe(options_str);
 
-		/*Sleeps for a 10th of a second each iteration*/
+		/*Sleeps for a 10th of a second for each iteration*/
 		usleep(100000);
 	}
 
@@ -463,52 +441,18 @@ int open_partial(char *filename)
 	return fd;
 }
 
-/*returns sectors written*/
-size_t copy_vob(dvd_file_t *dvd_file, unsigned int start_sector, unsigned int sectors, unsigned int retries, int outfd)
+/*Used to access the Video ManaGer data*/
+/*according to https://en.wikibooks.org/wiki/Inside_DVD-Video/Directory_Structure
+ *	It's kept in following files VIDEO_TS.{IFO,BUP,VOB}
+ *	It contains the jump codes to access menus and titles in a given title set.
+ *	The vmg_ctx however contains a list of all the titles and their information respectively.
+ */
+
+void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 {
-	size_t sector;
-	ssize_t written;
-	time_t starttime;
-	int total_sectors;
-	unsigned int tries;
-	size_t skipped_sectors;
-	unsigned char buffer[DVD_SECTOR_SIZE];
-
-	if (sectors)
-		total_sectors  = sectors;
-	else
-		total_sectors = DVDFileSize(dvd_file);
-
-	skipped_sectors = 0;
-	starttime       = time(NULL);
-	memset(&buffer, 0, sizeof(buffer));
-	/*!sectors translates to, continue the loop till the end.*/
-	for (sector = start_sector; (sector < total_sectors); sector++) {
-		tries = 0;
-
-		/*dvd_file, current_sector, sectors at once, buffer*/
-		while ((DVDReadBlocks(dvd_file, sector, 1, buffer) < 1) && (tries < retries))
-			tries++;
-
-		if (tries == retries) {
-			skipped_sectors++;
-			printe("\n[Error] Skipped sector %d\n", sector);
-			continue;
-		}
-
-		written = write(outfd, buffer, DVD_SECTOR_SIZE);
-		if (written < 0) {
-			printe("\n[Error] write failed: %s\n", strerror(errno));
-			break;
-		} else if (written != DVD_SECTOR_SIZE) {
-			printe("\n[Error] Failed to write the full sector because: %s\n", strerror(errno));
-			break;
-		}
-
-		/*starttime, current sector relative to last, last sector, force printing of status bar*/
-		progressUpdate(starttime, (sector - start_sector), total_sectors, false);
-	}
-
-	/*Calculate the actual amount of data wrote*/
-	return (sectors - skipped_sectors);
+	
 }
+
+
+
+
