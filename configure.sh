@@ -15,10 +15,10 @@ If you think you found a bug, please mail me, thanks! robos@muon.de"
 #args check *new*
 #declare -i i=0
 if [ $# != 0 ]
-then 
+then
      while [ $# != 0 ]
      do
-       
+
        if [ "$1" != "${1#--prefix=}" ]; then
        	   prefix="${1#--prefix=}"
 	   prefix_provided=true
@@ -44,8 +44,8 @@ then
        fi
 
        if [ "$1" != "${1#--with-lfs}" ]; then
-  	   echo "with large-file support"
- 	   LFS="LFS    = -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE"
+	   echo "with large-file support"
+	   LFS="LFS    = -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE"
 	   lfs_provided=true
        fi
 
@@ -54,7 +54,7 @@ then
 	   libs_dir_provided=true
        	   echo "with dvdread-libs here: $libs_dir"
        fi
-       
+
        if [ "$1" != "${1%help}" ]; then
 	   echo "--prefix=PREFIX                install architecture-independent files in PREFIX [/usr/local]"
 	   echo "--bindir=DIR                   user executables in DIR [PREFIX/bin]"
