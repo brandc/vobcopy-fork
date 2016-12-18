@@ -113,22 +113,6 @@ void capitalize(char *str, size_t len)
 }
 
 #if !defined( _GNU_SOURCE )
-/*Checks if lower case*/
-static bool is_lower(char c)
-{
-	if ((c >= 'a') && (c <= 'z'))
-		return true;
-	return false;
-}
-
-/*If the character is indeed lower case, it is made upper case*/
-static char lower2upper(char c)
-{
-	if (is_lower(c))
-		return (c - 'a') + 'A';
-	return c;
-}
-
 char *strcasestr(const char *haystack, const char *needle)
 {
 	size_t i, j, haystacklen, needlelen;
@@ -136,16 +120,16 @@ char *strcasestr(const char *haystack, const char *needle)
 	needlelen   = strlen(needle);
 	haystacklen = strlen(haystack);
 	for (i = 0; i < haystacklen; i++) {
-		for (j = 0; (j < needlelen) && ((i+j) > haystacklen); j++) {
-			if (lower2upper(haystack[i+j]) != lower2upper(needle[j]))
+		for (j = 0;; j++) {
+			/*If we've gotten to the end of haystack, there is no match.*/
+			if ((i+j+1) > haystacklen)
+				return NULL;
+			/*Check if the two strings differ, if so, check another part of haystack*/
+			else if (toupper(haystack[i+j]) != toupper(needle[j]))
 				break;
-		}
-
-		if ((i+j) > haystacklen)
-			break;
-		else if (j == (needlelen-1)) {
-			if (lower2upper(haystack[i+j]) == lower2upper(needle[j]))
-				return ((char*)haystack)+i+j;
+			/*If we've gotten to the end of needle, we're done*/
+			else if ((j+1) == needlelen)
+				return ((char*)haystack)+i;
 		}
 	}
 
@@ -177,7 +161,7 @@ char get_option(char *options_str, const char *opts)
 
 
 
-/*Zero's string, and then copies the source*/
+/*Zero's string, and then copies the source with one space for null*/
 char *safestrncpy(char *dest, const char *src, size_t n)
 {
 	memset(dest, 0, n);
@@ -209,7 +193,7 @@ long long unsigned int suffix2llu(char input)
 		die("[Error] Wrong suffix behind -b, only b,k,m or g \n");
 	}
 
-	die("suffix2llu, Impossible error\n");
+	/*impossible return*/
 	return 0;
 }
 
@@ -359,7 +343,12 @@ bool have_access(char *pathname, bool prompt)
 	return true;
 }
 
+<<<<<<< HEAD
 struct dirent *find_dir_entry(DIR *dir, char *name)
+=======
+/*Finds a given file in a case insensitive way*/
+char *find_listing(char *path, char *name)
+>>>>>>> 623b788... Further revised strcasestr. Changed several comments.
 {
 	struct dirent *ret;
 
