@@ -101,12 +101,9 @@ int main(int argc, char *argv[])
 	off_t vob_size                      = 0;
 	off_t free_space                    = 0;
 	ssize_t file_size_in_blocks         = 0;
-	off_t max_filesize_in_blocks_summed = 0;
-	off_t max_filesize_in_blocks        = MEGA; /* for 2^31 / DVD_SECTOR_SIZE */
 
 	/*Boolean flags*/
 	bool mounted                  = false;
-	bool cut_flag                 = false;
 	bool info_flag                = false;
 	bool quiet_flag               = false;
 	bool stdout_flag              = false;
@@ -114,9 +111,7 @@ int main(int argc, char *argv[])
 	bool verbose_flag             = false;
 	bool onefile_flag             = false;
 	bool titleid_flag             = false;
-	bool large_file_flag          = false;
-	/*default behavior*/
-	bool longest_title_flag       = true;
+	bool longest_title_flag       = true;	/*default behavior*/
 	bool provided_dvd_name_flag   = false;
 	bool provided_input_dir_flag  = false;
 	bool provided_output_dir_flag = false;
@@ -125,12 +120,15 @@ int main(int argc, char *argv[])
 	 * The new part taken from play-title.c
 	 *########################################################################*/
 	int chapid        = 0;
-	int titleid       = 2; /*What does this magic "2" mean?*/
+	int titleid       = 0;
 	int angle         = 0;
 	int sum_angles    = 0;
 	int sum_chapters  = 0;
 	int most_chapters = 0;
+
+	/*Title Table SectoR PoinTer*/
 	tt_srpt_t    *tt_srpt  = NULL;
+	/*ifo file handle*/
 	ifo_handle_t *vmg_file = NULL;
 
 	/*Zero buffers*/
@@ -143,9 +141,9 @@ int main(int argc, char *argv[])
 	onefile             = palloc(sizeof(char), PATH_MAX);
 	dvd_path            = palloc(sizeof(char), PATH_MAX);
 	vobcopy_call        = palloc(sizeof(char), PATH_MAX);
-	provided_output_dir = palloc(sizeof(char), PATH_MAX);
-	provided_input_dir  = palloc(sizeof(char), PATH_MAX);
 	logfile_path        = palloc(sizeof(char), PATH_MAX);
+	provided_input_dir  = palloc(sizeof(char), PATH_MAX);
+	provided_output_dir = palloc(sizeof(char), PATH_MAX);
 	bufferin            = palloc(sizeof(unsigned char), (DVD_SECTOR_SIZE));
 
 	alternate_output_dir = palloc(sizeof(char*), PATH_MAX);
@@ -159,10 +157,6 @@ int main(int argc, char *argv[])
 #ifdef HAVE_GETOPT_LONG
 	int option_index = 0;
 	static struct option long_options[] = {
-		{"1st_alt_output_dir", 1, 0, '1'},
-		{"2st_alt_output_dir", 1, 0, '2'},
-		{"3st_alt_output_dir", 1, 0, '3'},
-		{"4st_alt_output_dir", 1, 0, '4'},
 		{"angle", 1, 0, 'a'},
 		{"begin", 1, 0, 'b'},
 		{"chapter", 1, 0, 'c'},
@@ -172,7 +166,6 @@ int main(int argc, char *argv[])
 		{"help", 0, 0, 'h'},
 		{"input-dir", 1, 0, 'i'},
 		{"info", 0, 0, 'I'},
-		{"large-file", 0, 0, 'l'},
 		{"longest", 0, 0, 'M'},
 		{"mirror", 0, 0, 'm'},
 		{"title-number", 1, 0, 'n'},
@@ -201,11 +194,11 @@ int main(int argc, char *argv[])
 	while (1) {
 #ifdef HAVE_GETOPT_LONG
 		options_char = getopt_long(argc, argv,
-					   "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix",
+					   "a:b:c:e:i:n:o:qO:t:vfF:mMhL:Vw:Ix",
 					   long_options, &option_index);
 #else
 		options_char = getopt(argc, argv,
-				      "1:2:3:4:a:b:c:e:i:n:o:qO:t:vfF:lmMhL:Vw:Ix-");
+				      "a:b:c:e:i:n:o:qO:t:vfF:mMhL:Vw:Ix-");
 #endif
 
 		if (options_char == -1)
@@ -224,9 +217,8 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'b':	/*size to skip from the beginning (beginning-offset) */
+			printe("\"-b\" is currently not supported\n");
 			start_sector = opt2llu(optarg, 'b');
-
-			cut_flag = true;
 			break;
 
 		case 'c':	/*chapter *//*NOT WORKING!!*/
@@ -241,9 +233,8 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'e':	/*size to stop from the end (end-offset) */
+			printe("\"-e\" is currently not supported\n");
 			end_sector = opt2llu(optarg, 'e');
-
-			cut_flag = true;
 			break;
 
 		case 'f':	/*force flag, some options like -o, -1..-4 set this themselves */
@@ -267,14 +258,6 @@ int main(int argc, char *argv[])
 			}
 			provided_input_dir_flag = true;
 			break;
-
-#if defined( HAS_LARGEFILE ) || defined( MAC_LARGEFILE )
-		case 'l':	/*large file output */
-			max_filesize_in_blocks = (16*GIGA) / DVD_SECTOR_SIZE; /*16 GB /DVD_SECTOR_SIZE (block) */
-			/* 2^63 / DVD_SECTOR_SIZE (not exactly) */
-			large_file_flag = true;
-			break;
-#endif
 
 		case 'm':	/*mirrors the dvd to harddrive completly */
 			mirror_flag = true;
@@ -332,7 +315,7 @@ int main(int argc, char *argv[])
 				   maybe even stdout output */
 			if (strlen(optarg) > 33)
 				printf("[Hint] The max title-name length is 33, the remainder got discarded");
-			safestrncpy(provided_dvd_name, optarg, PATH_MAX);
+			safestrncpy(provided_dvd_name, optarg, sizeof(provided_dvd_name));
 			provided_dvd_name_flag = true;
 
 			strrepl(provided_dvd_name, ' ', '_');
@@ -495,7 +478,7 @@ int main(int argc, char *argv[])
 		if ((dvd_count = get_device_on_your_own(provided_input_dir, dvd_path)) <= 0) {
 			printe("[Warning] Could not get the device and path! Maybe not mounted the dvd?\n");
 			printe("[Hint] Will try to open it as a directory/image file\n");
-			/* exit( 1 );*/
+			goto end;
 		}
 		if (dvd_count > 0)
 			mounted = true;
@@ -503,9 +486,14 @@ int main(int argc, char *argv[])
 			mounted = false;
 	}
 
-	if (!mounted)
+	if (!mounted) {
+		if (!provided_input_dir_flag) {
+			printe("[REPORT] This is simply not possible!\n");
+			goto end;
+		}
 		/*see if the path given is a iso file or a VIDEO_TS dir */
 		safestrncpy(dvd_path, provided_input_dir, PATH_MAX);
+	}
 
 	/*
 	 * Is the path correct
@@ -528,7 +516,7 @@ int main(int argc, char *argv[])
 	 */
 	if (provided_dvd_name_flag) {
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, PATH_MAX);
+		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
 	}
 	else /*Error message is printed out by the function.*/
 		if (!get_dvd_name(dvd_path, dvd_name))
@@ -656,36 +644,30 @@ int main(int argc, char *argv[])
 
 	/* now the actual check if enough space is free */
 	if (pwd_free < vob_size) {
-		if (!force_flag)
-			printe("\n[Error] Hmm, better change to a dir with enough space left or call with -f (force) \n");
-		if (pwd_free == 0 && !force_flag) {
-			printe("[Error] Hmm, statfs (statvfs) seems not to work on that directory. \n");
-			printe("[Hint] Nevertheless, do you want vobcopy to continue [y] or do you want to check for \n");
-			printe("[Hint] enough space first [q]?\n");
+		if (!pwd_free)
+			printe("\n[Error] statfs (statvfs) seems not to work on the output directory.\n");
+		if (!force_flag) {
+			printe("\n[Error] There appears not to be enough space in the output directory to continue.\n");
 
-			op = get_option("[Error] Please choose [y] to continue or [n] to quit: ", "ynq");
-
-			if (op == 'y') {
+			op = get_option("[Error] Please choose [y] to continue or [n] to quit: ", "yn");
+			switch (op) {
+			case 'y':
 				force_flag = true;
 				if (verbosity_level >= 1)
 					printe("[Info] y pressed - force write\n");
-			} else if (op == 'n' || op == 'q') {
+			case 'n':
 				if (verbosity_level >= 1)
-					printe("[Info] n/q pressed\n");
+					printe("[Info] n pressed\n");
 				goto end;
 			}
 		}
-
-		if (!force_flag)
-			goto end;
 	}
 
 	if (mirror_flag) {
 		if (provided_output_dir_flag)
 			safestrncpy(pwd, provided_output_dir, PATH_MAX);
-		mirror(dvd_name, pwd, pwd_free, onefile_flag, force_flag,
-		       alternate_dir_count, stdout_flag, onefile, provided_input_dir,
-		       dvd);
+		mirror(dvd_name, pwd, pwd_free, onefile_flag,
+		       stdout_flag, onefile, provided_input_dir, dvd);
 
 		goto end;
 	}
@@ -739,7 +721,7 @@ int main(int argc, char *argv[])
 	/*if the user has given a name for the file */
 	if (provided_dvd_name_flag && !stdout_flag) {
 		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, PATH_MAX);
+		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
 	}
 
 	partcount    = 0;
@@ -756,10 +738,7 @@ int main(int argc, char *argv[])
 
 				if (verbosity_level > 1)
 					printe("[Info] Free space for -o dir: %.0f\n", (float)free_space);
-				if (large_file_flag)
-					make_output_path(pwd, name, dvd_name, titleid, -1);
-				else
-					make_output_path(pwd, name, dvd_name, titleid, partcount);
+				make_output_path(pwd, name, dvd_name, titleid, -1);
 			} else {
 				for (i = 1; i < alternate_dir_count; i++) {
 					if (paths_taken == i) {
@@ -768,30 +747,11 @@ int main(int argc, char *argv[])
 
 						if (verbosity_level > 1)
 							printe("[Info] Free space for -%i dir: %.0f\n", i, (float)free_space);
-						if (large_file_flag)
-							make_output_path(alternate_output_dir[i - 1], name, dvd_name, titleid, -1);
-						else
-							make_output_path(alternate_output_dir[i - 1], name, dvd_name, titleid, partcount);
+
+						make_output_path(alternate_output_dir[i - 1], name, dvd_name, titleid, -1);
 						/*alternate_dir_count--;*/
 					}
 				}
-			}
-			/*here the output size gets adjusted to the given free space */
-
-			if (!large_file_flag && force_flag && free_space < (2*GIGA)) {
-				max_filesize_in_blocks = ((free_space - (2*MEGA)) / DVD_SECTOR_SIZE);
-				if (verbosity_level > 1)
-					printe("[Info] Taken max_filesize_in_blocks(2GB version): %.0f\n",
-						(float)max_filesize_in_blocks);
-				paths_taken++;
-			} else if (large_file_flag && force_flag) {	/*lfs version */
-				max_filesize_in_blocks = ((free_space - (2*MEGA)) / DVD_SECTOR_SIZE);
-				if (verbosity_level > 1)
-					printe("[Info] Taken max_filesize_in_blocks(lfs version): %.0f\n",
-						(float)max_filesize_in_blocks);
-				paths_taken++;
-			} else if (!large_file_flag) {
-				max_filesize_in_blocks = (2*MEGA); /*if free_space is more than  2 GB fall back to max_filesize_in_blocks=2GB */
 			}
 
 			streamout = open_partial(name);
@@ -810,7 +770,7 @@ int main(int argc, char *argv[])
 		memset(bufferin, 0, (DVD_SECTOR_SIZE * sizeof(unsigned char)));
 
 		/*dvd context, starting sector, ending sector, retries, output*/
-		copy_vob(dvd_file, start_sector, end_sector, 10, streamout);
+		rip_vob_file(dvd_file, start_sector, end_sector, 10, streamout);
 
 		if (!stdout_flag) {
 			if (fdatasync(streamout) < 0)
@@ -827,7 +787,6 @@ int main(int argc, char *argv[])
 			close(streamout);
 
 			if (verbosity_level >= 1) {
-				printe("[Info] max_filesize_in_blocks %8.0f \n", (float)max_filesize_in_blocks);
 				printe("[Info] offset at the end %8.0f \n",      (float)offset);
 				printe("[Info] file_size_in_blocks %8.0f \n",    (float)file_size_in_blocks);
 			}
@@ -837,26 +796,13 @@ int main(int argc, char *argv[])
 			stat(name, &fileinfo);
 			disk_vob_size += (off_t)fileinfo.st_size;
 
-			if (large_file_flag && !cut_flag) {
-				if ((vob_size - disk_vob_size) < MAX_DIFFER)
-					rename_partial(name);
-				else {
-					printe("\n[Error] File size (%.0f) of %s differs largely from that on dvd,"
-					       " therefore keeps it's .partial\n",
-					       (float)fileinfo.st_size,
-					       name);
-				}
-			} else if (!cut_flag)
-				rename_partial(name);
-			else if (cut_flag)
-				rename_partial(name);
+			rename_partial(name);
 
 			if (verbosity_level >= 1) {
 				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, (float)fileinfo.st_size);
 				printe("[Info] Cumulated size %.0f\n", (float)disk_vob_size);
 			}
 		}
-		max_filesize_in_blocks_summed += max_filesize_in_blocks;
 		printe("\n[Info] Successfully copied file %s\n", name);
 
 		num_of_files++; /* # of seperate files we have written */
@@ -943,7 +889,7 @@ int make_output_path(char *pwd, char *name, char *dvd_name, int titleid, int par
 {
 	char temp[5];
 	safestrncpy(name, pwd, PATH_MAX);
-	strncat(name, dvd_name, PATH_MAX);
+	strcat(name, dvd_name);
 
 	sprintf(temp, "%d", titleid);
 	strcat(name, temp);
@@ -970,9 +916,6 @@ void usage(char *program_name)
 		"\nUsage: %s \n"
 		"if you want the main feature (title with most chapters) you don't need _any_ options!\n"
 		"Options:\n"
-#if defined( HAS_LARGEFILE ) || defined ( MAC_LARGEFILE )
-		"[-l (large-file support for files > 2GB)] \n"
-#endif
 		"[-m (mirror the whole dvd)] \n"
 		"[-M (Main title - i.e. the longest (playing time) title on the dvd)] \n"
 		"[-i /path/to/the/mounted/dvd/]\n"
@@ -985,7 +928,6 @@ void usage(char *program_name)
 		"[-v -v (create log-file)]\n"
 		"[-h (this here ;-)] \n"
 		"[-I (infos about title, chapters and angles on the dvd)]\n"
-		"[-1 /path/to/second/output/dir/] [-2 /.../third/..] [-3 /../] [-4 /../]\n"
 		"[-b <skip-size-at-beginning[bkmg]>] \n"
 		"[-e <skip-size-at-end[bkmg]>]\n"
 		"[-O <single_file_name1,single_file_name2, ...>] \n"

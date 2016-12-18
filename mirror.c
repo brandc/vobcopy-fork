@@ -36,8 +36,7 @@ extern int overall_skipped_blocks;
 /*----------Why exactly does mirroring the disk take so much code?---------*/
 /*=========================================================================*/
 void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
-	    bool force_flag, int alternate_dir_count, bool stdout_flag, char *onefile, char *provided_input_dir,
-	    dvd_reader_t *dvd)
+	    bool stdout_flag, char *onefile, char *provided_input_dir, dvd_reader_t *dvd)
 {
 	struct dirent *directory;
 	struct stat fileinfo;
@@ -136,7 +135,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 		file_size     = fileinfo.st_size;
 		tmp_file_size = file_size;
 
-		memset(bufferin, 0, DVD_VIDEO_LB_LEN * sizeof(unsigned char));
+		memset(bufferin, 0, DVD_SECTOR_SIZE * sizeof(unsigned char));
 
 		/*this here gets the title number */
 		for (i = 1; i <= 99; i++) {	/*there are 100 titles, but 0 is
@@ -158,9 +157,9 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 			dvd_file = DVDOpenFile(dvd, title_nr, DVD_READ_INFO_BACKUP_FILE);
 
 			/*this copies the data to the new file */
-			for (i = 0; i * DVD_VIDEO_LB_LEN < file_size; i++) {
-				DVDReadBytes(dvd_file, bufferin, DVD_VIDEO_LB_LEN);
-				if (write(streamout, bufferin, DVD_VIDEO_LB_LEN) < 0) {
+			for (i = 0; i * DVD_SECTOR_SIZE < file_size; i++) {
+				DVDReadBytes(dvd_file, bufferin, DVD_SECTOR_SIZE);
+				if (write(streamout, bufferin, DVD_SECTOR_SIZE) < 0) {
 					printe("\n[Error] Error writing to %s \n"
 					       "[Error] Error: %s\n",
 					       output_file,
@@ -174,7 +173,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 
 				/* progress indicator */
 				tmp_i = i;
-				printe("%4.0fkB of %4.0fkB written\r", (tmp_i + 1) * (DVD_VIDEO_LB_LEN / KILO), tmp_file_size / KILO);
+				printe("%4.0fkB of %4.0fkB written\r", (tmp_i + 1) * (DVD_SECTOR_SIZE / KILO), tmp_file_size / KILO);
 			}
 			fputc('\n', stderr);
 			if (!stdout_flag) {
@@ -229,7 +228,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 						printe("[Info] Vob %d %d (%s) has a size of %lli\n", title_nr, subvob, input_file, fileinfo.st_size);
 				}
 
-				start = (culm_single_vob_size / DVD_VIDEO_LB_LEN);
+				start = (culm_single_vob_size / DVD_SECTOR_SIZE);
 				/*start = ( ( ( directory->d_name[7] - 49 ) * 512 * KILO ) - ( directory->d_name[7] - 49 ) );  */
 				/* this here seeks d_name[7] 
 				 *  (which is the 3 in vts_01_3.vob) Gigabyte (which is equivalent to 512 * KILO blocks 
@@ -242,7 +241,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 			if (verbosity_level > 1)
 				printe("[Info] Start of %s at %d blocks \n", output_file, start);
 
-			copy_vob(dvd_file, start, 0, 10, streamout);
+			rip_vob_file(dvd_file, start, 0, 10, streamout);
 
 			fputc('\n', stderr);
 			if (!stdout_flag) {
