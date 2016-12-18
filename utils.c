@@ -95,14 +95,9 @@ void capitalize(char *str, size_t len)
 	char c;
 	size_t i;
 
-	for (i = 0; (i < len) && (c = str[i]); i++) {
-		if ((c <= 'z') && (c >= 'a')) {
-			c -= 'a';
-			c += 'A';
-
-			str[i] = c;
-		}
-	}
+	for (i = 0; (i < len) && (c = str[i]); i++)
+		if (islower(c))
+			str[i] = toupper(c);
 }
 
 #if !defined( _GNU_SOURCE )
@@ -439,6 +434,17 @@ int open_partial(char *filename)
 		    strerror(errno));
 
 	return fd;
+}
+
+
+off_t filesizeof(char *path)
+{
+	struct stat buf;
+
+	if (stat(path, &buf) == -1)
+		die("getfilesize (via stat): %s\n", strerror(errno));
+
+	return buf.st_size;
 }
 
 /*Used to access the Video ManaGer data*/
