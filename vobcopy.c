@@ -792,14 +792,12 @@ int main(int argc, char *argv[])
 			}
 
 			/* now lets see whats the size of this file in bytes */
-			struct stat fileinfo;
-			stat(name, &fileinfo);
-			disk_vob_size += (off_t)fileinfo.st_size;
+			disk_vob_size += filesizeof(name);
 
 			rename_partial(name);
 
 			if (verbosity_level >= 1) {
-				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, (float)fileinfo.st_size);
+				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, filesizeof(name));
 				printe("[Info] Cumulated size %.0f\n", (float)disk_vob_size);
 			}
 		}
@@ -888,16 +886,20 @@ int add_end_slash(char *path)
 int make_output_path(char *pwd, char *name, char *dvd_name, int titleid, int partcount)
 {
 	char temp[5];
+
 	safestrncpy(name, pwd, PATH_MAX);
 	strcat(name, dvd_name);
 
-	sprintf(temp, "%d", titleid);
+	memset(&temp, 0, sizeof(temp));
+	snprintf(temp, sizeof(temp), "%d", titleid);
 	strcat(name, temp);
+
 	if (partcount >= 0) {
 		strcat(name, "-");
 		sprintf(temp, "%d", partcount);
 		strcat(name, temp);
 	}
+
 	strcat(name, ".vob");
 
 	if (!have_access(name, true))

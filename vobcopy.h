@@ -190,6 +190,7 @@ extern const long long GIGA;
 const char *QUIET_LOG_FILE;
 
 void printe(char *str, ...);
+off_t filesizeof(char *path);
 void redirectlog(char *filename);
 off_t get_free_space(char *path);
 off_t get_used_space(char *path);

@@ -130,10 +130,8 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 		}
 
 		/* get the size of that file */
-		snprintf(input_file, PATH_MAX, "%s/%s/%s", cwd, video_ts_dir, directory->d_name);
-		stat(input_file, &fileinfo);
-		file_size     = fileinfo.st_size;
-		tmp_file_size = file_size;
+		snprintf(input_file, sizeof(input_file), "%s/%s/%s", cwd, video_ts_dir, directory->d_name);
+		tmp_file_size = filesizeof(input_file);
 
 		memset(bufferin, 0, DVD_SECTOR_SIZE * sizeof(unsigned char));
 

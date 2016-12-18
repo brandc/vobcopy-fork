@@ -534,7 +534,6 @@ off_t get_vob_size(int title, char *dvd_path)
 
 	char *name;
 	int vob_part;
-	struct stat buf;
 	off_t  vob_size;
 
 	name = find_listing(dvd_path, "VIDEO_TS");
@@ -552,9 +551,7 @@ off_t get_vob_size(int title, char *dvd_path)
 
 		/*Now stat the result*/
 		snprintf(stat_path, PATH_MAX, "%s/%s", vob_path, name);
-		if (stat(stat_path, &buf))
-			break;
-		vob_size += buf.st_size;
+		vob_size += filesizeof(stat_path);
 	}
 
 	return vob_size;
