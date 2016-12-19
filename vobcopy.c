@@ -639,8 +639,8 @@ int main(int argc, char *argv[])
 	}
 
 	/*Let the user know the amount of space available*/
-	printe("[Info]  Disk free: %f MB\n", (double)pwd_free / (double)MEGA);
-	printe("[Info]  Vobs size: %f MB\n", (double)vob_size / (double)MEGA);
+	printe("[Info]  Disk free: %lf MB\n", (double)pwd_free / (double)MEGA);
+	printe("[Info]  Vobs size: %lf MB\n", (double)vob_size / (double)MEGA);
 
 	/* now the actual check if enough space is free */
 	if (pwd_free < vob_size) {
