@@ -343,12 +343,7 @@ bool have_access(char *pathname, bool prompt)
 	return true;
 }
 
-<<<<<<< HEAD
 struct dirent *find_dir_entry(DIR *dir, char *name)
-=======
-/*Finds a given file in a case insensitive way*/
-char *find_listing(char *path, char *name)
->>>>>>> 623b788... Further revised strcasestr. Changed several comments.
 {
 	struct dirent *ret;
 
