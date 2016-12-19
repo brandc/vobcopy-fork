@@ -460,7 +460,7 @@ void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 	/*Title Table SectoR PoinTer*/
 	tt_srpt_t* tt_srpt;
 
-	/*Grab Title Table SectoR PoinTer*/
+	/*grab Title Table SectoR PoinTer*/
 	tt_srpt = vmg_ctx->tt_srpt;
 
 	/* chapters = nr_of_ptts (NumbeR OF PoinTer TableS)
@@ -483,7 +483,10 @@ void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 	for (title = 0; title < tt_srpt->nr_of_srpts; title++) {
 		/*"nr_of_ptts" = NumbeR OF PoinTer TableS*/
 		chapters = tt_srpt->title[title].nr_of_ptts;
-		printe("[Info] Title %hu has %hu chapers\n", title, chapters);
+		/* Most humans do not count starting from zero like most programmers;
+		 * thus it is necessary that one must add one, in order to align memory
+		 * position with the counting numbers.*/
+		printe("[Info] Title %hu has %hu chapers\n", title + 1, chapters);
 	}
 }
 
