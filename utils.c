@@ -100,6 +100,7 @@ void capitalize(char *str, size_t len)
 			str[i] = toupper(c);
 }
 
+/*GNU SOURCE has this function*/
 #if !defined( _GNU_SOURCE )
 char *strcasestr(const char *haystack, const char *needle)
 {
