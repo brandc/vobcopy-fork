@@ -457,8 +457,47 @@ off_t filesizeof(char *path)
 
 void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 {
-	
+	/*Title Table SectoR PoinTer*/
+	tt_srpt_t* tt_srpt;
+
+	/*Grab Title Table SectoR PoinTer*/
+	tt_srpt = vmg_ctx->tt_srpt;
+
+	/* chapters = nr_of_ptts (NumbeR OF PoinTer TableS)
+	 *
+	 * In the libdvdread library and on the physical disk
+	 * the size of nr_of_ptts is two ocets or 16bits.
+	 */
+	uint16_t chapters;
+
+	/* title = nr_of_srpts (NumbeR OF SectoR PoinTeRS)
+	 *
+	 * The size of the variable nr_of_srpts in the
+	 * libdvdread library is exactly two octets or 16bits,
+	 * which is also the size on the physical disk.
+	 */
+	uint16_t title;
+
+
+	/* nr_of_srpts = NumbeR OF SectoR PoinTeRS*/
+	for (title = 0; title < tt_srpt->nr_of_srpts; title++) {
+		/*"nr_of_ptts" = NumbeR OF PoinTer TableS*/
+		chapters = tt_srpt->title[title]->nr_of_ptts;
+		printe("[Info] Title %hu has %hu chapers\n", title, chapers);
+	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
