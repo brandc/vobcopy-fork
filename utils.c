@@ -136,18 +136,6 @@ char *strcasestr(const char *haystack, const char *needle)
 	needlelen   = strlen(needle);
 	haystacklen = strlen(haystack);
 	for (i = 0; i < haystacklen; i++) {
-<<<<<<< HEAD
-		for (j = 0; (j < needlelen) && ((i+j) > haystacklen); j++) {
-			if (lower2upper(haystack[i+j]) != lower2upper(needle[j]))
-				break;
-		}
-
-		if ((i+j) > haystacklen)
-			break;
-		else if (j == (needlelen-1)) {
-			if (lower2upper(haystack[i+j]) == lower2upper(needle[j]))
-				return ((char*)haystack)+i+j;
-=======
 		for (j = 0;; j++) {
 			/*If we've gotten to the end of haystack, there is no match.*/
 			if ((i+j+1) > haystacklen)
@@ -158,7 +146,6 @@ char *strcasestr(const char *haystack, const char *needle)
 			/*If we've gotten to the end of needle, we're done*/
 			else if ((j+1) == needlelen)
 				return ((char*)haystack)+i;
->>>>>>> 623b788... Further revised strcasestr. Changed several comments.
 		}
 	}
 
