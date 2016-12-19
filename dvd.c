@@ -647,7 +647,7 @@ int get_longest_title(dvd_reader_t *dvd)
 	master_ifo = ifoOpen(dvd, 0);
 	if (!master_ifo) {
 		printe("Can't open main ifo!\n");
-		return 3;
+		return -3;
 	}
 
 	longest_time  = 0;
@@ -660,7 +660,7 @@ int get_longest_title(dvd_reader_t *dvd)
 		if (!ifo) {
 			ifoClose(master_ifo);
 			printe("Can't open ifo %d!\n", i);
-			return 4;
+			return -4;
 		}
 		/*GENERAL*/
 		if (ifo->vtsi_mat) {
