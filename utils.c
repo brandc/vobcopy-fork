@@ -482,8 +482,8 @@ void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 	/* nr_of_srpts = NumbeR OF SectoR PoinTeRS*/
 	for (title = 0; title < tt_srpt->nr_of_srpts; title++) {
 		/*"nr_of_ptts" = NumbeR OF PoinTer TableS*/
-		chapters = tt_srpt->title[title]->nr_of_ptts;
-		printe("[Info] Title %hu has %hu chapers\n", title, chapers);
+		chapters = tt_srpt->title[title].nr_of_ptts;
+		printe("[Info] Title %hu has %hu chapers\n", title, chapters);
 	}
 }
 
