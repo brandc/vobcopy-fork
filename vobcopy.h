@@ -203,6 +203,7 @@ void strrepl(char *str, char orig, char new);
 void *palloc(size_t element, size_t elements);
 long long unsigned int suffix2llu(char input);
 bool have_access(char *pathname, bool prompt);
+void list_chapters_by_title(ifo_handle_t *vmg_ctx);
 long long unsigned opt2llu(char *opt, char optchar);
 char get_option(char *options_str, const char *opts);
 off_t get_sector_offset(long long unsigned int sector);
