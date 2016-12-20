@@ -187,7 +187,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free,
 						input_file[strlen(input_file) - 5] = (a + '0');
 
 					/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 ); */
-					if (stat(input_file, &fileinfo) < 0) {
+					if (!have_access(input_file) {
 						printe("[Info] Can't stat() %s.\n", input_file);
 						if (dvd_file)
 							DVDCloseFile(dvd_file);
@@ -195,9 +195,9 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free,
 						return;
 					}
 
-					culm_single_vob_size += fileinfo.st_size;
+					culm_single_vob_size += filesizeof(input_file);
 					if (verbosity_level > 1)
-						printe("[Info] Vob %d %d (%s) has a size of %lli\n", title_nr, subvob, input_file, fileinfo.st_size);
+						printe("[Info] Vob %d %d (%s) has a size of %lli\n", title_nr, subvob, input_file, filesizeof(input_file));
 				}
 
 				start = (culm_single_vob_size / DVD_SECTOR_SIZE);
