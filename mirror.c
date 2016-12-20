@@ -187,7 +187,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free,
 						input_file[strlen(input_file) - 5] = (a + '0');
 
 					/* input_file[ strlen( input_file ) - 5 ] = ( a + 48 ); */
-					if (!have_access(input_file) {
+					if (!have_access(input_file, false)) {
 						printe("[Info] Can't stat() %s.\n", input_file);
 						if (dvd_file)
 							DVDCloseFile(dvd_file);
