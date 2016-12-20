@@ -384,7 +384,7 @@ int makedir(char *name)
 	if (!have_access(name, false))
 		die("[Error] Don't have access to create %s\n", name);
 
-	if (mkdir(name, 0777)) {
+	if (mkdir(name, 0750)) {
 		if (errno == EEXIST)
 			return 0;
 		die("[Error] Failed to create directory: %s\n", name);
@@ -485,7 +485,8 @@ void list_chapters_by_title(ifo_handle_t *vmg_ctx)
 		chapters = tt_srpt->title[title].nr_of_ptts;
 		/* Most humans do not count starting from zero like most programmers;
 		 * thus it is necessary that one must add one, in order to align memory
-		 * position with the counting numbers.*/
+		 * position with the counting numbers.
+		 */
 		printe("[Info] Title %hu has %hu chapers\n", title + 1, chapters);
 	}
 }

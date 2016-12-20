@@ -35,7 +35,7 @@ extern int overall_skipped_blocks;
 /*=========================================================================*/
 /*----------Why exactly does mirroring the disk take so much code?---------*/
 /*=========================================================================*/
-void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *cwd, off_t pwd_free,
 	    bool stdout_flag, char *onefile, char *provided_input_dir, dvd_reader_t *dvd)
 {
 	struct dirent *directory;
@@ -54,7 +54,6 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 	char output_file[PATH_MAX];
 	int i, start, title_nr = 0;
 	off_t file_size;
-	double tmp_i = 0, tmp_file_size = 0;
 	char *name;
 	char dvd_path[PATH_MAX];
 	char d_name[PATH_MAX];
@@ -94,31 +93,6 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 		capitalize(d_name, PATH_MAX);
 		snprintf(output_file, PATH_MAX, "%s/%s", cwd, d_name);
 
-		/*in order to copy only _one_ file and do "globbing" a la: -O 02 will copy vts_02_1, vts_02_2 ... all that have 02 in it */
-		if (onefile_flag) {
-			char *tokenpos, *tokenpos1;
-			char tmp[12];
-			tokenpos = onefile;
-			if (strstr(tokenpos, ",")) {
-				/*tokens separated by , *//*this parses every token without modifying the onefile var */
-				while ((tokenpos1 = strstr(tokenpos, ","))) {
-					int len_begin;
-					len_begin = tokenpos1 - tokenpos;
-					safestrncpy(tmp, tokenpos, len_begin);
-					tokenpos = tokenpos1 + 1;
-					tmp[len_begin] = '\0';
-
-					if (strstr(d_name, tmp))
-						break;
-				}
-
-				continue;	/*no token matched, next d_name is tested */
-			} else {
-				if (!strstr(d_name, onefile))	/*if the token is found in the d_name copy */
-					continue;
-			}
-		}
-
 		if (stdout_flag) /*this writes to stdout */
 			streamout = STDOUT_FILENO;	/*in other words: 1, see "man stdout" */
 		else {
@@ -131,7 +105,8 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 
 		/* get the size of that file */
 		snprintf(input_file, sizeof(input_file), "%s/%s/%s", cwd, video_ts_dir, directory->d_name);
-		tmp_file_size = filesizeof(input_file);
+		printe("input_file: %s\n");
+		file_size = filesizeof(input_file);
 
 		memset(bufferin, 0, DVD_SECTOR_SIZE * sizeof(unsigned char));
 
@@ -170,8 +145,7 @@ void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
 				}
 
 				/* progress indicator */
-				tmp_i = i;
-				printe("%4.0fkB of %4.0fkB written\r", (tmp_i + 1) * (DVD_SECTOR_SIZE / KILO), tmp_file_size / KILO);
+				printe("%4.0fkB of %4.0fkB written\r", (i + 1) * (DVD_SECTOR_SIZE / KILO), file_size / KILO);
 			}
 			fputc('\n', stderr);
 			if (!stdout_flag) {

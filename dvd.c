@@ -612,7 +612,7 @@ size_t rip_vob_file(dvd_file_t *dvd_file, unsigned int start_sector, unsigned in
 long dvdtime2msec(dvd_time_t *dt)
 {
 	long   ms;
-	/*Why are PAL and NTSC frame rates are spelled out here, and what's with the -1's*/
+	/*PAL and NTSC frame rates are spelled out here for framerate detection*/
 	double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
 	double fps = frames_per_s[(dt->frame_u & 0xc0) >> 6];
 

@@ -403,17 +403,6 @@ int main(int argc, char *argv[])
 	printe("Vobcopy " VERSION " - GPL Copyright (c) 2001 - 2009 robos@muon.de\n");
 	printe("[Hint] All lines starting with \"libdvdread:\" are not from vobcopy but from the libdvdread-library\n");
 
-
-	/*get the current working directory */
-	if (provided_output_dir_flag)
-		strcpy(pwd, provided_output_dir);
-	else if (!getcwd(pwd, PATH_MAX)) {
-		printe("\n[Error] getcwd failed with: %s\n", strerror(errno));
-		goto end;
-	}
-
-	add_end_slash(pwd);
-
 	if (quiet_flag) {
 		char tmp_path[PATH_MAX];
 
@@ -441,6 +430,12 @@ int main(int argc, char *argv[])
 
 		printe("--------------------------------------------------------------------------------\n");
 		printe("[Info] Called: %s\n", vobcopy_call);
+	}
+
+	/*sanity check: -m and -O do not go together*/
+	if (mirror_flag && onefile_flag) {
+		printe("\n[Error] -m and -O can not be used together.\n");
+		goto end;
 	}
 
 	/*sanity check: -m and -n are mutually exclusive... */
@@ -523,6 +518,28 @@ int main(int argc, char *argv[])
 			goto end;
 
 	printe("[Info] Name of the dvd: %s\n", dvd_name);
+
+	if (provided_output_dir_flag)
+		strcpy(pwd, provided_output_dir);
+	else {
+		if (!getcwd(pwd, PATH_MAX)) {
+			printe("\n[Error] getcwd failed with: %s\n", strerror(errno));
+			goto end;
+		}
+
+		if (!stdout_flag) {
+			/*before adding more junk to the end of pwd, one must add a forward slash.*/
+			add_end_slash(pwd);
+
+			/*Adds the dvd title to the working directory*/
+			strncat(pwd, dvd_name, PATH_MAX - strnlen(pwd, PATH_MAX));
+
+			/*Make sure the directory exists*/
+			makedir(pwd);
+		}
+	}
+	/*Before using path to the working directoy, one must add a forward to avoid mangling the path*/
+	add_end_slash(pwd);
 
 	/*########################################################################
 	 * The new part taken from play-title.c
@@ -615,7 +632,7 @@ int main(int argc, char *argv[])
 		disk_vob_size = get_used_space(provided_input_dir);
 	} else if (mounted && !mirror_flag) {
 		printe("[Info] Checking title %d\n", titleid);
-		vob_size = (get_vob_size(titleid, provided_input_dir)) - get_sector_offset(start_sector) - get_sector_offset(end_sector);
+		vob_size = get_vob_size(titleid, provided_input_dir) - (get_sector_offset(start_sector) + get_sector_offset(end_sector));
 
 		if ((!vob_size) || (vob_size > (9*GIGA))) {
 			printe("\n[Error] Something went wrong during the size detection of the");
@@ -639,8 +656,8 @@ int main(int argc, char *argv[])
 	}
 
 	/*Let the user know the amount of space available*/
-	printe("[Info]  Disk free: %lf MB\n", (double)pwd_free / (double)MEGA);
-	printe("[Info]  Vobs size: %lf MB\n", (double)vob_size / (double)MEGA);
+	printe("[Info]  Disk free: %.0lf MB\n", (double)pwd_free / (double)MEGA);
+	printe("[Info]  Vobs size: %.0lf MB\n", (double)vob_size / (double)MEGA);
 
 	/* now the actual check if enough space is free */
 	if (pwd_free < vob_size) {
@@ -664,11 +681,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (mirror_flag) {
-		if (provided_output_dir_flag)
-			safestrncpy(pwd, provided_output_dir, PATH_MAX);
-		mirror(dvd_name, pwd, pwd_free, onefile_flag,
-		       stdout_flag, onefile, provided_input_dir, dvd);
-
+		mirror(dvd_name, pwd, pwd_free, stdout_flag, onefile, provided_input_dir, dvd);
 		goto end;
 	}
 
@@ -779,12 +792,11 @@ int main(int argc, char *argv[])
 				       name,
 				       strerror(errno)
 				);
-			progressUpdate(starttime,
-				       (int)offset / BLOCK_SIZE,
-				       (int)(file_size_in_blocks - start_sector - end_sector) / BLOCK_SIZE,
-				       true);
 
 			close(streamout);
+
+			/*rename file from .partial to what it should be called.*/
+			rename_partial(name);
 
 			if (verbosity_level >= 1) {
 				printe("[Info] offset at the end %8.0f \n",      (float)offset);
@@ -793,8 +805,6 @@ int main(int argc, char *argv[])
 
 			/* now lets see whats the size of this file in bytes */
 			disk_vob_size += filesizeof(name);
-
-			rename_partial(name);
 
 			if (verbosity_level >= 1) {
 				printe("[Info] Single file size (of copied file %s ) %.0f\n", name, filesizeof(name));

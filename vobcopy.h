@@ -181,6 +181,7 @@ size_t rip_vob_file(dvd_file_t *dvd_file, unsigned int start_sector,
 		unsigned int sectors, unsigned int retries, int outfd);
 
 /*utils.c*/
+extern const long long DVD_DATA_BLOCK_SIZE;
 extern const long long DVD_SECTOR_SIZE;
 extern const long long BLOCK_SIZE;
 extern const long long KILO;
@@ -211,7 +212,7 @@ char *safestrncpy(char *dest, const char *src, size_t n);
 char *strcasestr(const char *haystack, const char *needle);
 
 /*mirror.c*/
-void mirror(char *dvd_name, char *cwd, off_t pwd_free, bool onefile_flag,
+void mirror(char *dvd_name, char *cwd, off_t pwd_free, \
 	    bool stdout_flag, char *onefile, char *provided_input_dir, dvd_reader_t *dvd);
 
 #if defined(__APPLE__) && defined(__GNUC__)
