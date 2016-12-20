@@ -33,6 +33,7 @@
 
 /*Allows libdvdcss to make it's presense known via stderr*/
 #define DVDCSS_VERBOSE 1
+
 #define MAX_DIFFER  2000
 
 /*Standard C lib*/

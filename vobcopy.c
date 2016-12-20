@@ -695,6 +695,14 @@ int main(int argc, char *argv[])
 	printe("[Info] Using Chapter: %i\n", chapid + 1);
 	printe("[Info] Using Angle: %i\n", angle + 1);
 
+	/*print dvd name*/
+	printe("\n[Info] DVD-name: %s\n", dvd_name);
+	/*if the user has given a name for the file */
+	if (provided_dvd_name_flag && !stdout_flag) {
+		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
+		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
+	}
+
 	/**
 	 * We've got enough info, time to open the title set data.
 	 */
@@ -729,13 +737,6 @@ int main(int argc, char *argv[])
 	/*********************
 	 * this is the main read and copy loop
 	 *********************/
-	printe("\n[Info] DVD-name: %s\n", dvd_name);
-
-	/*if the user has given a name for the file */
-	if (provided_dvd_name_flag && !stdout_flag) {
-		printe("\n[Info] Your name for the dvd: %s\n", provided_dvd_name);
-		safestrncpy(dvd_name, provided_dvd_name, sizeof(dvd_name));
-	}
 
 	partcount    = 0;
 	num_of_files = 0;
@@ -987,7 +988,7 @@ void progressUpdate(int starttime, int cur, int tot, int force)
 	/*2 for brackets, 1 for space, 5 for percent complete, 1 for space,
 	 *6 for time left, 1 for space, 1 for 100.0%, 4 for status bar bug*/
 	barLen = cols - 2 - 1 - 5 - 1 - 6 - 1 - 1 - 4;
-	barChar = tot / barLen;
+	barChar = (int)roundf((float)tot / (float)barLen);
 	percentComplete = (((float)cur / (float)tot) * 100.f);
 	percentLeft = 100.f - percentComplete;
 	numChars = ((float)cur / (float)barChar);
